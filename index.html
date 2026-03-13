@@ -71,6 +71,10 @@ margin:4px;
 cursor:pointer
 }
 
+.roomNav{
+margin-bottom:10px
+}
+
 .roomTab{
 display:inline-block;
 padding:9px 14px;
@@ -105,6 +109,12 @@ text-align:center
 margin-bottom:12px
 }
 
+.roomNavigation{
+margin-top:20px;
+display:flex;
+justify-content:space-between
+}
+
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -124,36 +134,53 @@ margin-bottom:12px
 <div class="grid">
 
 <div class="field"><label>PID</label><input id="pid"></div>
-<div class="field"><label>Customer Name</label><input id="cx"></div>
+<div class="field"><label>Cx name</label><input id="cx"></div>
 <div class="field"><label>City</label><input id="city"></div>
 <div class="field"><label>Address</label><input id="address"></div>
-<div class="field"><label>Society</label><input id="society"></div>
-<div class="field"><label>Flat No</label><input id="flat"></div>
+<div class="field"><label>Society Name</label><input id="society"></div>
+<div class="field"><label>Flat no</label><input id="flat"></div>
+<div class="field"><label>Floor No</label><input id="floorNo"></div>
 
 <div class="field">
-<label>Is Service lift Usage Allowed?</label>
-<select id="serviceLiftUsage">
+<label>BHK</label>
+<select id="bhk">
 <option></option>
-<option>Heavy material movement allowed</option>
-<option>Heavy material movement Not allowed</option>
+<option>1 BHK</option>
+<option>2 BHK</option>
+<option>3 BHK</option>
+<option>4 BHK</option>
 </select>
 </div>
 
 <div class="field">
-<label>Is dedicated area (for debris and material) present for loading/unloading ?</label>
-<select id="loadingArea">
+<label>Property type</label>
+<select id="propertyType">
 <option></option>
-<option>Yes, present within 30 ft of site location</option>
-<option>Yes, present more than 30 ft of site location</option>
-<option>Not present, direct loading/unloading to be done</option>
+<option>Bare shell</option>
+<option>Builder finished</option>
+<option>Resale</option>
 </select>
 </div>
 
+<div class="field">
+<label>Will Cx stay in property during execution?</label>
+<select id="cxStay">
+<option></option>
+<option>Yes</option>
+<option>No</option>
+</select>
+</div>
+
+<div class="field">
+<label>Work Timings / Exceptions</label>
+<input id="workTiming">
 </div>
 
 </div>
 
-<div class="card">
+</div>
+
+<div class="card roomNav">
 <div id="roomTabs"></div>
 <button onclick="addRoom()">Add Room</button>
 </div>
@@ -161,11 +188,9 @@ margin-bottom:12px
 <div class="card" id="roomForm"></div>
 
 <div class="card">
-
 <button onclick="generateExcel()">Generate Excel</button>
-<button onclick="fillTestData()">Fill Test Data</button>
+<button onclick="generateFullSample()">Generate Full Sample Validation</button>
 <button onclick="clearAllData()">Clear All Data</button>
-
 </div>
 
 </div>
@@ -173,7 +198,6 @@ margin-bottom:12px
 <script>
 
 const walls=["NW","EW","SW","WW"]
-
 const modules=["1M","2M","3M","4M","6M","8M","10M","12M","AC Point","Fan"]
 
 const defaultRooms=[
@@ -225,14 +249,22 @@ const wallQuestions=[
 ]
 
 let data={rooms:{}}
+let roomOrder=[...defaultRooms]
+let currentRoomIndex=0
 
 function init(){
 
 defaultRooms.forEach(r=>{
-data.rooms[r]={electrical:{},room:{},walls:{}}
+data.rooms[r]={
+measurements:{ceiling:{},diagonal:{},wallDeviation:{}},
+electrical:{},
+room:{},
+walls:{}
+}
 })
 
 renderTabs()
+openRoom(roomOrder[0])
 
 }
 
@@ -240,7 +272,7 @@ function renderTabs(){
 
 let html=""
 
-Object.keys(data.rooms).forEach(r=>{
+roomOrder.forEach(r=>{
 html+=`<span class="roomTab" onclick="openRoom('${r}')">${r}</span>`
 })
 
@@ -254,7 +286,9 @@ let name=prompt("Room name")
 
 if(!name)return
 
-data.rooms[name]={electrical:{},room:{},walls:{}}
+roomOrder.push(name)
+
+data.rooms[name]={measurements:{ceiling:{},diagonal:{},wallDeviation:{}},electrical:{},room:{},walls:{}}
 
 renderTabs()
 
@@ -262,11 +296,37 @@ renderTabs()
 
 function openRoom(room){
 
+currentRoomIndex=roomOrder.indexOf(room)
+
 let html=`<h3>${room}</h3>`
 
-html+=`<div class="sectionHeader">Electrical Modules</div>`
+html+=`<div class="sectionHeader">Floor to Ceiling Measurement</div>
 
-html+=`<table><tr><th>Wall</th>`
+<div class="grid">
+<input placeholder="NW Corner" oninput="saveMeasure('${room}','ceiling','NW',this.value)">
+<input placeholder="NE Corner" oninput="saveMeasure('${room}','ceiling','NE',this.value)">
+<input placeholder="SW Corner" oninput="saveMeasure('${room}','ceiling','SW',this.value)">
+<input placeholder="SE Corner" oninput="saveMeasure('${room}','ceiling','SE',this.value)">
+<input placeholder="Center" oninput="saveMeasure('${room}','ceiling','Center',this.value)">
+</div>`
+
+html+=`<div class="sectionHeader">Room Diagonal Measurement</div>
+
+<div class="grid">
+<input placeholder="Diagonal 1" oninput="saveMeasure('${room}','diagonal','D1',this.value)">
+<input placeholder="Diagonal 2" oninput="saveMeasure('${room}','diagonal','D2',this.value)">
+</div>`
+
+html+=`<div class="sectionHeader">Wall Deviation Measurement</div>
+
+<div class="grid">
+<input placeholder="NW Wall" oninput="saveMeasure('${room}','wallDeviation','NW',this.value)">
+<input placeholder="EW Wall" oninput="saveMeasure('${room}','wallDeviation','EW',this.value)">
+<input placeholder="SW Wall" oninput="saveMeasure('${room}','wallDeviation','SW',this.value)">
+<input placeholder="WW Wall" oninput="saveMeasure('${room}','wallDeviation','WW',this.value)">
+</div>`
+
+html+=`<div class="sectionHeader">Electrical Modules</div><table><tr><th>Wall</th>`
 
 modules.forEach(m=>{html+=`<th>${m}</th>`})
 
@@ -318,8 +378,27 @@ html+=`
 </div>`
 })
 
+html+=`
+<div class="roomNavigation">
+<button onclick="prevRoom()">Previous Room</button>
+<button onclick="nextRoom()">Next Room</button>
+</div>
+`
+
 document.getElementById("roomForm").innerHTML=html
 
+}
+
+function prevRoom(){
+if(currentRoomIndex>0)openRoom(roomOrder[currentRoomIndex-1])
+}
+
+function nextRoom(){
+if(currentRoomIndex<roomOrder.length-1)openRoom(roomOrder[currentRoomIndex+1])
+}
+
+function saveMeasure(room,type,key,val){
+data.rooms[room].measurements[type][key]=val
 }
 
 function saveElec(room,wall,module,value){
@@ -350,41 +429,46 @@ function generateExcel(){
 
 let rows=[]
 
+const project={
+PID:pid.value,
+CxName:cx.value,
+City:city.value,
+Address:address.value,
+Society:society.value,
+FlatNo:flat.value,
+FloorNo:floorNo.value,
+BHK:bhk.value,
+PropertyType:propertyType.value
+}
+
 Object.keys(data.rooms).forEach(room=>{
 
 let r=data.rooms[room]
 
+Object.entries(r.measurements.ceiling).forEach(([k,v])=>{
+rows.push({...project,Room:room,Section:"Ceiling Measurement",Item:k,Answer:v})
+})
+
+Object.entries(r.measurements.diagonal).forEach(([k,v])=>{
+rows.push({...project,Room:room,Section:"Room Diagonal",Item:k,Answer:v})
+})
+
+Object.entries(r.measurements.wallDeviation).forEach(([k,v])=>{
+rows.push({...project,Room:room,Section:"Wall Deviation",Item:k,Answer:v})
+})
+
 Object.entries(r.electrical).forEach(([wall,val])=>{
 Object.entries(val).forEach(([module,count])=>{
-rows.push({
-Room:room,
-Section:"Electrical",
-Wall:wall,
-Item:module,
-Answer:count
-})
+rows.push({...project,Room:room,Section:"Electrical",Wall:wall,Item:module,Answer:count})
 })
 })
 
 Object.entries(r.room).forEach(([q,v])=>{
-rows.push({
-Room:room,
-Section:"Room Question",
-Item:q,
-Answer:v.answer,
-Comment:v.comment
-})
+rows.push({...project,Room:room,Section:"Room Question",Item:q,Answer:v.answer,Comment:v.comment})
 })
 
 Object.entries(r.walls).forEach(([q,v])=>{
-rows.push({
-Room:room,
-Section:"Wall Question",
-Item:q,
-Wall:(v.walls||[]).join(","),
-Answer:v.answer,
-Comment:v.comment
-})
+rows.push({...project,Room:room,Section:"Wall Question",Wall:(v.walls||[]).join(","),Item:q,Answer:v.answer,Comment:v.comment})
 })
 
 })
@@ -395,12 +479,12 @@ XLSX.writeFile(wb,"site_validation.xlsx")
 
 }
 
-function fillTestData(){
+function generateFullSample(){
 
 Object.keys(data.rooms).forEach(room=>{
 
-modules.forEach(m=>{
 walls.forEach(w=>{
+modules.forEach(m=>{
 saveElec(room,w,m,Math.floor(Math.random()*3))
 })
 })
@@ -415,7 +499,7 @@ data.rooms[room].walls[q]={answer:"Yes",walls:["NW"],comment:"ABCD"}
 
 })
 
-alert("Random test data added")
+alert("Full sample validation generated")
 
 }
 
