@@ -4,6 +4,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Site Validation Tool</title>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
 <style>
 
 body{font-family:Arial;margin:0;background:#f4f6fb}
@@ -32,7 +34,7 @@ border:1px solid #ddd
 .grid{
 display:grid;
 grid-template-columns:1fr 1fr 1fr;
-gap:14px
+gap:12px
 }
 
 @media(max-width:900px){
@@ -48,39 +50,22 @@ margin-bottom:4px
 
 input,select,textarea{
 width:100%;
-padding:9px;
+padding:8px;
 border-radius:6px;
 border:1px solid #ccc
 }
 
 textarea{
-height:70px
-}
-
-textarea::placeholder{
-color:#aaa
+height:60px
 }
 
 button{
-padding:11px 16px;
+padding:10px 16px;
 border:none;
 background:#1e3d8f;
 color:white;
 border-radius:6px;
 margin:4px;
-cursor:pointer
-}
-
-.roomNav{
-margin-bottom:10px
-}
-
-.roomTab{
-display:inline-block;
-padding:9px 14px;
-border:1px solid #ccc;
-margin:4px;
-border-radius:6px;
 cursor:pointer
 }
 
@@ -92,32 +77,26 @@ margin-top:14px;
 font-weight:bold
 }
 
-table{
-width:100%;
-border-collapse:collapse;
-margin-top:10px;
-font-size:12px
-}
-
-table th,table td{
-border:1px solid #ddd;
-padding:4px;
-text-align:center
+.roomTab{
+display:inline-block;
+padding:8px 12px;
+border:1px solid #ccc;
+margin:3px;
+border-radius:6px;
+cursor:pointer
 }
 
 .question{
-margin-bottom:12px
+margin-bottom:10px
 }
 
 .roomNavigation{
-margin-top:20px;
 display:flex;
-justify-content:space-between
+justify-content:space-between;
+margin-top:20px
 }
 
 </style>
-
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 </head>
 
@@ -134,26 +113,26 @@ justify-content:space-between
 <div class="grid">
 
 <div class="field"><label>PID</label><input id="pid"></div>
-<div class="field"><label>Cx name</label><input id="cx"></div>
+<div class="field"><label>Cx Name</label><input id="cx"></div>
 <div class="field"><label>City</label><input id="city"></div>
 <div class="field"><label>Address</label><input id="address"></div>
 <div class="field"><label>Society Name</label><input id="society"></div>
-<div class="field"><label>Flat no</label><input id="flat"></div>
+<div class="field"><label>Flat No</label><input id="flat"></div>
 <div class="field"><label>Floor No</label><input id="floorNo"></div>
 
 <div class="field">
 <label>BHK</label>
 <select id="bhk">
 <option></option>
-<option>1 BHK</option>
-<option>2 BHK</option>
-<option>3 BHK</option>
-<option>4 BHK</option>
+<option>1</option>
+<option>2</option>
+<option>3</option>
+<option>4</option>
 </select>
 </div>
 
 <div class="field">
-<label>Property type</label>
+<label>Property Type</label>
 <select id="propertyType">
 <option></option>
 <option>Bare shell</option>
@@ -163,8 +142,8 @@ justify-content:space-between
 </div>
 
 <div class="field">
-<label>Will Cx stay in property during execution?</label>
-<select id="cxStay">
+<label>Is Service lift available?</label>
+<select id="serviceLift">
 <option></option>
 <option>Yes</option>
 <option>No</option>
@@ -172,15 +151,65 @@ justify-content:space-between
 </div>
 
 <div class="field">
-<label>Work Timings / Exceptions</label>
-<input id="workTiming">
+<label>Record : Size of the Service lift</label>
+<input id="serviceLiftSize">
+</div>
+
+<div class="field">
+<label>Is Passenger lift available?</label>
+<select id="passengerLift">
+<option></option>
+<option>Yes</option>
+<option>No</option>
+</select>
+</div>
+
+<div class="field">
+<label>Is Service lift Usage Allowed?</label>
+<select id="serviceLiftUsage">
+<option></option>
+<option>Heavy material movement allowed</option>
+<option>Heavy material movement Not allowed</option>
+</select>
+</div>
+
+<div class="field">
+<label>Is dedicated area (for debris and material) present for loading/unloading ?</label>
+<select id="loadingArea">
+<option></option>
+<option>Yes, present within 30 ft of site location</option>
+<option>Yes, present more than 30 ft of site location</option>
+<option>Not present, direct loading/unloading to be done</option>
+</select>
+</div>
+
+<div class="field">
+<label>Is debris dumping allowed in the basement?</label>
+<select id="debrisDumping">
+<option></option>
+<option>Yes</option>
+<option>No</option>
+</select>
+</div>
+
+<div class="field">
+<label>Is vehicle entry possible?</label>
+<select id="vehicleEntry">
+<option></option>
+<option>Yes</option>
+<option>No</option>
+</select>
+</div>
+
+<div class="field">
+<label>Any Society Restrictions?</label>
+<textarea id="societyRestrictions" placeholder="Add Comments"></textarea>
 </div>
 
 </div>
-
 </div>
 
-<div class="card roomNav">
+<div class="card">
 <div id="roomTabs"></div>
 <button onclick="addRoom()">Add Room</button>
 </div>
@@ -189,20 +218,11 @@ justify-content:space-between
 
 <div class="card">
 <button onclick="generateExcel()">Generate Excel</button>
-<button onclick="generateFullSample()">Generate Full Sample Validation</button>
-<button onclick="clearAllData()">Clear All Data</button>
 </div>
 
 </div>
 
 <script>
-
-const walls=["NW","EW","SW","WW"]
-const modules=["1M","2M","3M","4M","6M","8M","10M","12M","AC Point","Fan"]
-
-const defaultRooms=[
-"Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"
-]
 
 const roomQuestions=[
 
@@ -248,25 +268,15 @@ const wallQuestions=[
 
 ]
 
-let data={rooms:{}}
-let roomOrder=[...defaultRooms]
-let currentRoomIndex=0
+const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
 
-function init(){
+let roomOrder=[...defaultRooms]
+let currentRoom=0
+let data={}
 
 defaultRooms.forEach(r=>{
-data.rooms[r]={
-measurements:{ceiling:{},diagonal:{},wallDeviation:{}},
-electrical:{},
-room:{},
-walls:{}
-}
+data[r]={room:{},wall:{}}
 })
-
-renderTabs()
-openRoom(roomOrder[0])
-
-}
 
 function renderTabs(){
 
@@ -280,67 +290,11 @@ document.getElementById("roomTabs").innerHTML=html
 
 }
 
-function addRoom(){
-
-let name=prompt("Room name")
-
-if(!name)return
-
-roomOrder.push(name)
-
-data.rooms[name]={measurements:{ceiling:{},diagonal:{},wallDeviation:{}},electrical:{},room:{},walls:{}}
-
-renderTabs()
-
-}
-
 function openRoom(room){
 
-currentRoomIndex=roomOrder.indexOf(room)
+currentRoom=roomOrder.indexOf(room)
 
 let html=`<h3>${room}</h3>`
-
-html+=`<div class="sectionHeader">Floor to Ceiling Measurement</div>
-
-<div class="grid">
-<input placeholder="NW Corner" oninput="saveMeasure('${room}','ceiling','NW',this.value)">
-<input placeholder="NE Corner" oninput="saveMeasure('${room}','ceiling','NE',this.value)">
-<input placeholder="SW Corner" oninput="saveMeasure('${room}','ceiling','SW',this.value)">
-<input placeholder="SE Corner" oninput="saveMeasure('${room}','ceiling','SE',this.value)">
-<input placeholder="Center" oninput="saveMeasure('${room}','ceiling','Center',this.value)">
-</div>`
-
-html+=`<div class="sectionHeader">Room Diagonal Measurement</div>
-
-<div class="grid">
-<input placeholder="Diagonal 1" oninput="saveMeasure('${room}','diagonal','D1',this.value)">
-<input placeholder="Diagonal 2" oninput="saveMeasure('${room}','diagonal','D2',this.value)">
-</div>`
-
-html+=`<div class="sectionHeader">Wall Deviation Measurement</div>
-
-<div class="grid">
-<input placeholder="NW Wall" oninput="saveMeasure('${room}','wallDeviation','NW',this.value)">
-<input placeholder="EW Wall" oninput="saveMeasure('${room}','wallDeviation','EW',this.value)">
-<input placeholder="SW Wall" oninput="saveMeasure('${room}','wallDeviation','SW',this.value)">
-<input placeholder="WW Wall" oninput="saveMeasure('${room}','wallDeviation','WW',this.value)">
-</div>`
-
-html+=`<div class="sectionHeader">Electrical Modules</div><table><tr><th>Wall</th>`
-
-modules.forEach(m=>{html+=`<th>${m}</th>`})
-
-html+=`</tr>`
-
-walls.forEach(w=>{
-html+=`<tr><td>${w}</td>`
-modules.forEach(m=>{
-html+=`<td><input oninput="saveElec('${room}','${w}','${m}',this.value)"></td>`
-})
-html+=`</tr>`
-})
-
-html+=`</table>`
 
 html+=`<div class="sectionHeader">Room Questions</div>`
 
@@ -348,12 +302,13 @@ roomQuestions.forEach(q=>{
 html+=`
 <div class="question">
 <label>${q}</label>
-<select oninput="saveRoom('${room}','${q}',this.value)">
+<select onchange="saveAnswer('${room}','room','${q}',this.value)">
 <option></option>
 <option>Yes</option>
 <option>No</option>
 </select>
-<textarea placeholder="Add Comments" oninput="saveRoomComment('${room}','${q}',this.value)"></textarea>
+<textarea placeholder="Add Comments"
+oninput="saveComment('${room}','room','${q}',this.value)"></textarea>
 </div>`
 })
 
@@ -363,18 +318,21 @@ wallQuestions.forEach(q=>{
 html+=`
 <div class="question">
 <label>${q}</label>
-<select oninput="saveWall('${room}','${q}','answer',this.value)">
+<select onchange="saveAnswer('${room}','wall','${q}',this.value)">
 <option></option>
 <option>Yes</option>
 <option>No</option>
 </select>
-<select multiple oninput="saveWallWalls('${room}','${q}',this)">
+
+<select multiple onchange="saveWall('${room}','${q}',this)">
 <option>NW</option>
 <option>EW</option>
 <option>SW</option>
 <option>WW</option>
 </select>
-<textarea placeholder="Add Comments" oninput="saveWall('${room}','${q}','comment',this.value)"></textarea>
+
+<textarea placeholder="Add Comments"
+oninput="saveComment('${room}','wall','${q}',this.value)"></textarea>
 </div>`
 })
 
@@ -389,125 +347,76 @@ document.getElementById("roomForm").innerHTML=html
 
 }
 
+function saveAnswer(room,type,q,val){
+if(!data[room][type][q])data[room][type][q]={}
+data[room][type][q].answer=val
+}
+
+function saveComment(room,type,q,val){
+if(!data[room][type][q])data[room][type][q]={}
+data[room][type][q].comment=val
+}
+
+function saveWall(room,q,el){
+if(!data[room].wall[q])data[room].wall[q]={}
+data[room].wall[q].walls=[...el.selectedOptions].map(o=>o.value)
+}
+
 function prevRoom(){
-if(currentRoomIndex>0)openRoom(roomOrder[currentRoomIndex-1])
+if(currentRoom>0)openRoom(roomOrder[currentRoom-1])
 }
 
 function nextRoom(){
-if(currentRoomIndex<roomOrder.length-1)openRoom(roomOrder[currentRoomIndex+1])
+if(currentRoom<roomOrder.length-1)openRoom(roomOrder[currentRoom+1])
 }
 
-function saveMeasure(room,type,key,val){
-data.rooms[room].measurements[type][key]=val
-}
-
-function saveElec(room,wall,module,value){
-if(!data.rooms[room].electrical[wall])data.rooms[room].electrical[wall]={}
-data.rooms[room].electrical[wall][module]=value
-}
-
-function saveRoom(room,q,value){
-if(!data.rooms[room].room[q])data.rooms[room].room[q]={}
-data.rooms[room].room[q].answer=value
-}
-
-function saveRoomComment(room,q,value){
-data.rooms[room].room[q].comment=value
-}
-
-function saveWall(room,q,type,value){
-if(!data.rooms[room].walls[q])data.rooms[room].walls[q]={}
-data.rooms[room].walls[q][type]=value
-}
-
-function saveWallWalls(room,q,e){
-let s=[...e.selectedOptions].map(o=>o.value)
-data.rooms[room].walls[q].walls=s
+function addRoom(){
+let name=prompt("Room Name")
+if(!name)return
+roomOrder.push(name)
+data[name]={room:{},wall:{}}
+renderTabs()
 }
 
 function generateExcel(){
 
 let rows=[]
 
-const project={
-PID:pid.value,
-CxName:cx.value,
-City:city.value,
-Address:address.value,
-Society:society.value,
-FlatNo:flat.value,
-FloorNo:floorNo.value,
-BHK:bhk.value,
-PropertyType:propertyType.value
-}
+Object.keys(data).forEach(room=>{
 
-Object.keys(data.rooms).forEach(room=>{
-
-let r=data.rooms[room]
-
-Object.entries(r.measurements.ceiling).forEach(([k,v])=>{
-rows.push({...project,Room:room,Section:"Ceiling Measurement",Item:k,Answer:v})
-})
-
-Object.entries(r.measurements.diagonal).forEach(([k,v])=>{
-rows.push({...project,Room:room,Section:"Room Diagonal",Item:k,Answer:v})
-})
-
-Object.entries(r.measurements.wallDeviation).forEach(([k,v])=>{
-rows.push({...project,Room:room,Section:"Wall Deviation",Item:k,Answer:v})
-})
-
-Object.entries(r.electrical).forEach(([wall,val])=>{
-Object.entries(val).forEach(([module,count])=>{
-rows.push({...project,Room:room,Section:"Electrical",Wall:wall,Item:module,Answer:count})
+Object.entries(data[room].room).forEach(([q,v])=>{
+rows.push({
+Room:room,
+Section:"Room Question",
+Question:q,
+Answer:v.answer,
+Comment:v.comment
 })
 })
 
-Object.entries(r.room).forEach(([q,v])=>{
-rows.push({...project,Room:room,Section:"Room Question",Item:q,Answer:v.answer,Comment:v.comment})
+Object.entries(data[room].wall).forEach(([q,v])=>{
+rows.push({
+Room:room,
+Section:"Wall Question",
+Wall:(v.walls||[]).join(","),
+Question:q,
+Answer:v.answer,
+Comment:v.comment
 })
-
-Object.entries(r.walls).forEach(([q,v])=>{
-rows.push({...project,Room:room,Section:"Wall Question",Wall:(v.walls||[]).join(","),Item:q,Answer:v.answer,Comment:v.comment})
 })
 
 })
 
 let wb=XLSX.utils.book_new()
-XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Validation Data")
+let ws=XLSX.utils.json_to_sheet(rows)
+
+XLSX.utils.book_append_sheet(wb,ws,"Validation Data")
 XLSX.writeFile(wb,"site_validation.xlsx")
 
 }
 
-function generateFullSample(){
-
-Object.keys(data.rooms).forEach(room=>{
-
-walls.forEach(w=>{
-modules.forEach(m=>{
-saveElec(room,w,m,Math.floor(Math.random()*3))
-})
-})
-
-roomQuestions.forEach(q=>{
-data.rooms[room].room[q]={answer:"Yes",comment:"ABCD"}
-})
-
-wallQuestions.forEach(q=>{
-data.rooms[room].walls[q]={answer:"Yes",walls:["NW"],comment:"ABCD"}
-})
-
-})
-
-alert("Full sample validation generated")
-
-}
-
-function clearAllData(){
-location.reload()
-}
-
-init()
+renderTabs()
+openRoom(defaultRooms[0])
 
 </script>
 
