@@ -19,7 +19,7 @@ textarea{height:60px}
 button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radius:6px;margin:4px;cursor:pointer}
 .roomTab{display:inline-block;padding:8px 12px;border:1px solid #ccc;margin:3px;border-radius:6px;cursor:pointer}
 .question{margin-bottom:12px}
-.wallBox{display:flex;gap:12px;margin:6px 0}
+.wallBox{display:flex;gap:12px;margin:6px 0;flex-wrap:wrap}
 .wallBox label{display:flex;align-items:center;gap:4px;font-size:13px}
 </style>
 </head>
@@ -47,26 +47,26 @@ button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radiu
 <h3>Society Constraints</h3>
 <div class="grid">
 <select id="serviceLiftUsage" onchange="saveConstraints()">
-<option>Service lift usage allowed?</option>
+<option value="">Service lift usage allowed?</option>
 <option>Heavy material movement allowed</option>
 <option>Heavy material movement Not allowed</option>
 </select>
 
 <select id="loadingArea" onchange="saveConstraints()">
-<option>Debris loading area</option>
+<option value="">Debris loading area</option>
 <option>Within 30 ft</option>
 <option>More than 30 ft</option>
 <option>Not present</option>
 </select>
 
 <select id="debrisDumping" onchange="saveConstraints()">
-<option>Debris dumping allowed?</option>
+<option value="">Debris dumping allowed?</option>
 <option>Yes</option>
 <option>No</option>
 </select>
 
 <select id="vehicleEntry" onchange="saveConstraints()">
-<option>Vehicle entry possible?</option>
+<option value="">Vehicle entry possible?</option>
 <option>Yes</option>
 <option>No</option>
 </select>
@@ -92,7 +92,7 @@ button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radiu
 
 const walls=["NW","EW","SW","WW"]
 
-const roomQuestions = ["Is there a requirement of PCC due to leveling issues/bare shell property?",
+const roomQuestions=["Is there a requirement of PCC due to leveling issues/bare shell property?",
 "Existing flooring in Good condition with with proper slope/levels?",
 "Can we do tile on tile installation?",
 "Is there sufficient height or clearance between the existing ceiling and any obstructions (such as beams, HVAC systems, or lighting fixtures) to accommodate the false ceiling installation?",
@@ -111,8 +111,8 @@ const roomQuestions = ["Is there a requirement of PCC due to leveling issues/bar
 "Do we need to provide damp proof treament on walls?",
 "Do we need to provide weather proof treatment on walls which are exposed to external atmosphere?",
 "Is there existing countertop present?",
-"Are there any issues with the existing false ceiling, such as damage, sagging, or instability, that require removal and replacement?"]; // KEEP SAME (no change)
-const wallQuestions = ["Is the wall a load-bearing wall/Mivan Construction/Sheer wall?",
+"Are there any issues with the existing false ceiling, such as damage, sagging, or instability, that require removal and replacement?"]
+const wallQuestions=["Is the wall a load-bearing wall/Mivan Construction/Sheer wall?",
 "Is the wall dry wall/Gypsum wall?",
 "Are there major cracks that require structural repair?",
 "Does the existing wall surface have undulations or uneven surface, requiring leveling?",
@@ -125,7 +125,7 @@ const wallQuestions = ["Is the wall a load-bearing wall/Mivan Construction/Sheer
 "Is panelling/pelmet required to be done for AC installation?",
 "Are there any darker shade on the wall?",
 "Is the existing paint in good condition, without excessive peeling, flaking, or bubbling?",
-"Do we need to remove skirting for wardrobe installlation?"]; // KEEP SAME (no change)
+"Do we need to remove skirting for wardrobe installlation?"]
 
 const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
 
@@ -143,24 +143,24 @@ if(!data.rooms[r])data.rooms[r]={room:{},wall:{},wallSel:{}}
 
 function saveProject(){
 data.project={
-pid:pid.value,
-cx:cx.value,
-city:city.value,
-address:address.value,
-society:society.value,
-flat:flat.value,
-floorNo:floorNo.value
+pid:document.getElementById("pid").value,
+cx:document.getElementById("cx").value,
+city:document.getElementById("city").value,
+address:document.getElementById("address").value,
+society:document.getElementById("society").value,
+flat:document.getElementById("flat").value,
+floorNo:document.getElementById("floorNo").value
 }
 saveData()
 }
 
 function saveConstraints(){
 data.constraints={
-serviceLiftUsage:serviceLiftUsage.value,
-loadingArea:loadingArea.value,
-debrisDumping:debrisDumping.value,
-vehicleEntry:vehicleEntry.value,
-societyRestrictions:societyRestrictions.value
+serviceLiftUsage:document.getElementById("serviceLiftUsage").value,
+loadingArea:document.getElementById("loadingArea").value,
+debrisDumping:document.getElementById("debrisDumping").value,
+vehicleEntry:document.getElementById("vehicleEntry").value,
+societyRestrictions:document.getElementById("societyRestrictions").value
 }
 saveData()
 }
@@ -169,11 +169,21 @@ function saveData(){
 localStorage.setItem("validatorData",JSON.stringify(data))
 }
 
-function renderTabs(){
-roomTabs.innerHTML=roomOrder.map(r=>`<span class="roomTab" onclick="openRoom('${r}')">${r}</span>`).join("")
+function renderTabs(activeRoom){
+document.getElementById("roomTabs").innerHTML=
+roomOrder.map(r=>`
+<span class="roomTab" 
+style="${r===activeRoom?'background:#1e3d8f;color:white':''}"
+onclick="openRoom('${r}')">${r}</span>`).join("")
 }
 
 function openRoom(room){
+
+if(!data.rooms[room]){
+data.rooms[room]={room:{},wall:{},wallSel:{}}
+}
+
+renderTabs(room)
 
 const r=data.rooms[room]
 const container=document.getElementById("roomForm")
@@ -185,10 +195,7 @@ container.appendChild(title)
 
 /* WALL QUESTIONS */
 
-let wallHeader=document.createElement("div")
-wallHeader.className="sectionHeader"
-wallHeader.textContent="Wall Questions"
-container.appendChild(wallHeader)
+container.appendChild(sectionHeader("Wall Questions"))
 
 wallQuestions.forEach(q=>{
 let div=document.createElement("div")
@@ -197,12 +204,10 @@ div.className="question"
 let label=document.createElement("label")
 label.textContent=q
 
-let select=document.createElement("select")
-select.innerHTML="<option></option><option>Yes</option><option>No</option>"
-select.value=r.wall[q]||""
-select.onchange=()=>{data.rooms[room].wall[q]=select.value; saveData()}
-
-/* CHECKBOXES */
+let select=createYesNo(r.wall[q], val=>{
+data.rooms[room].wall[q]=val
+saveData()
+})
 
 let wallBox=document.createElement("div")
 wallBox.className="wallBox"
@@ -211,11 +216,17 @@ walls.forEach(w=>{
 let lbl=document.createElement("label")
 let cb=document.createElement("input")
 cb.type="checkbox"
-cb.checked=(r.wallSel[q]||[]).includes(w)
+
+let arr=r.wallSel[q]||[]
+cb.checked=arr.includes(w)
 
 cb.onchange=()=>{
 let arr=r.wallSel[q]||[]
-if(cb.checked){arr.push(w)}else{arr=arr.filter(x=>x!==w)}
+if(cb.checked){
+if(!arr.includes(w)) arr.push(w)
+}else{
+arr=arr.filter(x=>x!==w)
+}
 data.rooms[room].wallSel[q]=arr
 saveData()
 }
@@ -225,10 +236,10 @@ lbl.append(w)
 wallBox.appendChild(lbl)
 })
 
-let textarea=document.createElement("textarea")
-textarea.placeholder="Add Comments"
-textarea.value=r.wall[q+"-c"]||""
-textarea.onchange=()=>{data.rooms[room].wall[q+"-c"]=textarea.value; saveData()}
+let textarea=createTextarea(r.wall[q+"-c"], val=>{
+data.rooms[room].wall[q+"-c"]=val
+saveData()
+})
 
 div.append(label,select,wallBox,textarea)
 container.appendChild(div)
@@ -236,10 +247,7 @@ container.appendChild(div)
 
 /* ROOM QUESTIONS */
 
-let roomHeader=document.createElement("div")
-roomHeader.className="sectionHeader"
-roomHeader.textContent="Room Questions"
-container.appendChild(roomHeader)
+container.appendChild(sectionHeader("Room Questions"))
 
 roomQuestions.forEach(q=>{
 let div=document.createElement("div")
@@ -247,20 +255,43 @@ let div=document.createElement("div")
 let label=document.createElement("label")
 label.textContent=q
 
-let select=document.createElement("select")
-select.innerHTML="<option></option><option>Yes</option><option>No</option>"
-select.value=r.room[q]||""
-select.onchange=()=>{data.rooms[room].room[q]=select.value; saveData()}
+let select=createYesNo(r.room[q], val=>{
+data.rooms[room].room[q]=val
+saveData()
+})
 
-let textarea=document.createElement("textarea")
-textarea.placeholder="Add Comments"
-textarea.value=r.room[q+"-c"]||""
-textarea.onchange=()=>{data.rooms[room].room[q+"-c"]=textarea.value; saveData()}
+let textarea=createTextarea(r.room[q+"-c"], val=>{
+data.rooms[room].room[q+"-c"]=val
+saveData()
+})
 
 div.append(label,select,textarea)
 container.appendChild(div)
 })
 
+}
+
+function sectionHeader(text){
+let el=document.createElement("div")
+el.className="sectionHeader"
+el.textContent=text
+return el
+}
+
+function createYesNo(value,onchange){
+let select=document.createElement("select")
+select.innerHTML="<option></option><option>Yes</option><option>No</option>"
+select.value=value||""
+select.onchange=()=>onchange(select.value)
+return select
+}
+
+function createTextarea(value,onchange){
+let t=document.createElement("textarea")
+t.placeholder="Add Comments"
+t.value=value||""
+t.onchange=()=>onchange(t.value)
+return t
 }
 
 function generateExcel(){
@@ -271,6 +302,8 @@ Object.keys(data.rooms).forEach(room=>{
 let r=data.rooms[room]
 
 Object.entries(r.wall).forEach(([k,v])=>{
+if(k.endsWith("-c")) return
+
 rows.push({
 ...data.project,
 ...data.constraints,
@@ -284,6 +317,8 @@ Comments:r.wall[k+"-c"]||""
 })
 
 Object.entries(r.room).forEach(([k,v])=>{
+if(k.endsWith("-c")) return
+
 rows.push({
 ...data.project,
 ...data.constraints,
@@ -309,10 +344,34 @@ let name=prompt("Room name")
 if(!name)return
 roomOrder.push(name)
 data.rooms[name]={room:{},wall:{},wallSel:{}}
-renderTabs()
+renderTabs(name)
 }
 
-renderTabs()
+function loadProjectData(){
+const p=data.project||{}
+document.getElementById("pid").value=p.pid||""
+document.getElementById("cx").value=p.cx||""
+document.getElementById("city").value=p.city||""
+document.getElementById("address").value=p.address||""
+document.getElementById("society").value=p.society||""
+document.getElementById("flat").value=p.flat||""
+document.getElementById("floorNo").value=p.floorNo||""
+}
+
+function loadConstraints(){
+const c=data.constraints||{}
+document.getElementById("serviceLiftUsage").value=c.serviceLiftUsage||""
+document.getElementById("loadingArea").value=c.loadingArea||""
+document.getElementById("debrisDumping").value=c.debrisDumping||""
+document.getElementById("vehicleEntry").value=c.vehicleEntry||""
+document.getElementById("societyRestrictions").value=c.societyRestrictions||""
+}
+
+/* INIT */
+
+renderTabs(defaultRooms[0])
+loadProjectData()
+loadConstraints()
 openRoom(defaultRooms[0])
 
 </script>
