@@ -158,38 +158,12 @@ let title=document.createElement("h3")
 title.textContent=room
 container.appendChild(title)
 
-let header1=document.createElement("div")
-header1.className="sectionHeader"
-header1.textContent="Room Questions"
-container.appendChild(header1)
+/* WALL QUESTIONS FIRST */
 
-roomQuestions.forEach(q=>{
-let div=document.createElement("div")
-div.className="question"
-
-let label=document.createElement("label")
-label.textContent=q
-
-let select=document.createElement("select")
-select.innerHTML="<option></option><option>Yes</option><option>No</option>"
-select.value=r.room[q]||""
-select.onchange=()=>{data.rooms[room].room[q]=select.value; saveData()}
-
-let textarea=document.createElement("textarea")
-textarea.placeholder="Add Comments"
-textarea.value=r.room[q+"-c"]||""
-textarea.onchange=()=>{data.rooms[room].room[q+"-c"]=textarea.value; saveData()}
-
-div.appendChild(label)
-div.appendChild(select)
-div.appendChild(textarea)
-container.appendChild(div)
-})
-
-let header2=document.createElement("div")
-header2.className="sectionHeader"
-header2.textContent="Wall Questions"
-container.appendChild(header2)
+let wallHeader=document.createElement("div")
+wallHeader.className="sectionHeader"
+wallHeader.textContent="Wall Questions"
+container.appendChild(wallHeader)
 
 wallQuestions.forEach(q=>{
 let div=document.createElement("div")
@@ -214,23 +188,61 @@ div.appendChild(textarea)
 container.appendChild(div)
 })
 
+/* ROOM QUESTIONS AFTER */
+
+let roomHeader=document.createElement("div")
+roomHeader.className="sectionHeader"
+roomHeader.textContent="Room Questions"
+container.appendChild(roomHeader)
+
+roomQuestions.forEach(q=>{
+let div=document.createElement("div")
+div.className="question"
+
+let label=document.createElement("label")
+label.textContent=q
+
+let select=document.createElement("select")
+select.innerHTML="<option></option><option>Yes</option><option>No</option>"
+select.value=r.room[q]||""
+select.onchange=()=>{data.rooms[room].room[q]=select.value; saveData()}
+
+let textarea=document.createElement("textarea")
+textarea.placeholder="Add Comments"
+textarea.value=r.room[q+"-c"]||""
+textarea.onchange=()=>{data.rooms[room].room[q+"-c"]=textarea.value; saveData()}
+
+div.appendChild(label)
+div.appendChild(select)
+div.appendChild(textarea)
+container.appendChild(div)
+})
+
 }
 
 function generateExcel(){
+
 let rows=[]
+
 Object.keys(data.rooms).forEach(room=>{
 let r=data.rooms[room]
-Object.entries(r.room).forEach(([k,v])=>{
-rows.push({Room:room,Section:"Room",Item:k,Value:v})
-})
+
 Object.entries(r.wall).forEach(([k,v])=>{
 rows.push({Room:room,Section:"Wall",Item:k,Value:v})
 })
+
+Object.entries(r.room).forEach(([k,v])=>{
+rows.push({Room:room,Section:"Room",Item:k,Value:v})
 })
+
+})
+
 let wb=XLSX.utils.book_new()
 let ws=XLSX.utils.json_to_sheet(rows)
+
 XLSX.utils.book_append_sheet(wb,ws,"Validation Data")
 XLSX.writeFile(wb,"site_validation.xlsx")
+
 }
 
 function addRoom(){
