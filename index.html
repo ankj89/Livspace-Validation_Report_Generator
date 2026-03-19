@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Site Validation Tool</title>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
 body{font-family:Arial;margin:0;background:#f4f6fb}
@@ -33,45 +33,45 @@ button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radiu
 <div class="card">
 <h3>Preliminary Project Details</h3>
 <div class="grid">
-<input id="pid" placeholder="PID" onchange="saveProject()">
-<input id="cx" placeholder="Cx Name" onchange="saveProject()">
-<input id="city" placeholder="City" onchange="saveProject()">
-<input id="address" placeholder="Address" onchange="saveProject()">
-<input id="society" placeholder="Society Name" onchange="saveProject()">
-<input id="flat" placeholder="Flat No" onchange="saveProject()">
-<input id="floorNo" placeholder="Floor No" onchange="saveProject()">
+<input id="pid" placeholder="PID">
+<input id="cx" placeholder="Cx Name">
+<input id="city" placeholder="City">
+<input id="address" placeholder="Address">
+<input id="society" placeholder="Society Name">
+<input id="flat" placeholder="Flat No">
+<input id="floorNo" placeholder="Floor No">
 </div>
 </div>
 
 <div class="card">
 <h3>Society Constraints</h3>
 <div class="grid">
-<select id="serviceLiftUsage" onchange="saveConstraints()">
+<select id="serviceLiftUsage">
 <option value="">Service lift usage allowed?</option>
 <option>Heavy material movement allowed</option>
 <option>Heavy material movement Not allowed</option>
 </select>
 
-<select id="loadingArea" onchange="saveConstraints()">
+<select id="loadingArea">
 <option value="">Debris loading area</option>
 <option>Within 30 ft</option>
 <option>More than 30 ft</option>
 <option>Not present</option>
 </select>
 
-<select id="debrisDumping" onchange="saveConstraints()">
+<select id="debrisDumping">
 <option value="">Debris dumping allowed?</option>
 <option>Yes</option>
 <option>No</option>
 </select>
 
-<select id="vehicleEntry" onchange="saveConstraints()">
+<select id="vehicleEntry">
 <option value="">Vehicle entry possible?</option>
 <option>Yes</option>
 <option>No</option>
 </select>
 
-<textarea id="societyRestrictions" placeholder="Society Restrictions" onchange="saveConstraints()"></textarea>
+<textarea id="societyRestrictions" placeholder="Society Restrictions"></textarea>
 </div>
 </div>
 
@@ -92,7 +92,7 @@ button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radiu
 
 const walls=["NW","EW","SW","WW"]
 
-const roomQuestions=["Is there a requirement of PCC due to leveling issues/bare shell property?",
+const roomQuestions = ["Is there a requirement of PCC due to leveling issues/bare shell property?",
 "Existing flooring in Good condition with with proper slope/levels?",
 "Can we do tile on tile installation?",
 "Is there sufficient height or clearance between the existing ceiling and any obstructions (such as beams, HVAC systems, or lighting fixtures) to accommodate the false ceiling installation?",
@@ -111,8 +111,9 @@ const roomQuestions=["Is there a requirement of PCC due to leveling issues/bare 
 "Do we need to provide damp proof treament on walls?",
 "Do we need to provide weather proof treatment on walls which are exposed to external atmosphere?",
 "Is there existing countertop present?",
-"Are there any issues with the existing false ceiling, such as damage, sagging, or instability, that require removal and replacement?"]
-const wallQuestions=["Is the wall a load-bearing wall/Mivan Construction/Sheer wall?",
+"Are there any issues with the existing false ceiling, such as damage, sagging, or instability, that require removal and replacement?"];
+
+const wallQuestions = ["Is the wall a load-bearing wall/Mivan Construction/Sheer wall?",
 "Is the wall dry wall/Gypsum wall?",
 "Are there major cracks that require structural repair?",
 "Does the existing wall surface have undulations or uneven surface, requiring leveling?",
@@ -125,7 +126,7 @@ const wallQuestions=["Is the wall a load-bearing wall/Mivan Construction/Sheer w
 "Is panelling/pelmet required to be done for AC installation?",
 "Are there any darker shade on the wall?",
 "Is the existing paint in good condition, without excessive peeling, flaking, or bubbling?",
-"Do we need to remove skirting for wardrobe installlation?"]
+"Do we need to remove skirting for wardrobe installlation?"];
 
 const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
 
@@ -141,31 +142,25 @@ defaultRooms.forEach(r=>{
 if(!data.rooms[r])data.rooms[r]={room:{},wall:{},wallSel:{}}
 })
 
-function saveProject(){
-data.project={
-pid:document.getElementById("pid").value,
-cx:document.getElementById("cx").value,
-city:document.getElementById("city").value,
-address:document.getElementById("address").value,
-society:document.getElementById("society").value,
-flat:document.getElementById("flat").value,
-floorNo:document.getElementById("floorNo").value
-}
-saveData()
-}
-
-function saveConstraints(){
-data.constraints={
-serviceLiftUsage:document.getElementById("serviceLiftUsage").value,
-loadingArea:document.getElementById("loadingArea").value,
-debrisDumping:document.getElementById("debrisDumping").value,
-vehicleEntry:document.getElementById("vehicleEntry").value,
-societyRestrictions:document.getElementById("societyRestrictions").value
-}
-saveData()
-}
-
 function saveData(){
+data.project={
+pid:pid.value,
+cx:cx.value,
+city:city.value,
+address:address.value,
+society:society.value,
+flat:flat.value,
+floorNo:floorNo.value
+}
+
+data.constraints={
+serviceLiftUsage:serviceLiftUsage.value,
+loadingArea:loadingArea.value,
+debrisDumping:debrisDumping.value,
+vehicleEntry:vehicleEntry.value,
+societyRestrictions:societyRestrictions.value
+}
+
 localStorage.setItem("validatorData",JSON.stringify(data))
 }
 
@@ -192,8 +187,6 @@ container.innerHTML=""
 let title=document.createElement("h3")
 title.textContent=room
 container.appendChild(title)
-
-/* WALL QUESTIONS */
 
 container.appendChild(sectionHeader("Wall Questions"))
 
@@ -245,8 +238,6 @@ div.append(label,select,wallBox,textarea)
 container.appendChild(div)
 })
 
-/* ROOM QUESTIONS */
-
 container.appendChild(sectionHeader("Room Questions"))
 
 roomQuestions.forEach(q=>{
@@ -288,14 +279,12 @@ return select
 
 function createTextarea(value,onchange){
 let t=document.createElement("textarea")
-t.placeholder="Add Comments"
 t.value=value||""
 t.onchange=()=>onchange(t.value)
 return t
 }
 
 function generateExcel(){
-
 let rows=[]
 
 Object.keys(data.rooms).forEach(room=>{
@@ -303,10 +292,7 @@ let r=data.rooms[room]
 
 Object.entries(r.wall).forEach(([k,v])=>{
 if(k.endsWith("-c")) return
-
 rows.push({
-...data.project,
-...data.constraints,
 Room:room,
 Section:"Wall",
 Item:k,
@@ -318,10 +304,7 @@ Comments:r.wall[k+"-c"]||""
 
 Object.entries(r.room).forEach(([k,v])=>{
 if(k.endsWith("-c")) return
-
 rows.push({
-...data.project,
-...data.constraints,
 Room:room,
 Section:"Room",
 Item:k,
@@ -347,32 +330,10 @@ data.rooms[name]={room:{},wall:{},wallSel:{}}
 renderTabs(name)
 }
 
-function loadProjectData(){
-const p=data.project||{}
-document.getElementById("pid").value=p.pid||""
-document.getElementById("cx").value=p.cx||""
-document.getElementById("city").value=p.city||""
-document.getElementById("address").value=p.address||""
-document.getElementById("society").value=p.society||""
-document.getElementById("flat").value=p.flat||""
-document.getElementById("floorNo").value=p.floorNo||""
-}
-
-function loadConstraints(){
-const c=data.constraints||{}
-document.getElementById("serviceLiftUsage").value=c.serviceLiftUsage||""
-document.getElementById("loadingArea").value=c.loadingArea||""
-document.getElementById("debrisDumping").value=c.debrisDumping||""
-document.getElementById("vehicleEntry").value=c.vehicleEntry||""
-document.getElementById("societyRestrictions").value=c.societyRestrictions||""
-}
-
-/* INIT */
-
+document.addEventListener("DOMContentLoaded", function(){
 renderTabs(defaultRooms[0])
-loadProjectData()
-loadConstraints()
 openRoom(defaultRooms[0])
+})
 
 </script>
 
