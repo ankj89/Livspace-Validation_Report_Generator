@@ -15,7 +15,7 @@ button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radiu
 .logo{font-size:22px;font-weight:bold;margin-bottom:20px}
 table{border-collapse:collapse;width:100%}
 th,td{border:1px solid #ccc;padding:8px}
-th{background:#1e3d8f;color:#fff}
+th{background:#1e3d8f;color:#fff;font-weight:bold}
 .header{background:#eef2ff;font-weight:bold}
 .hidden{display:none}
 </style>
@@ -24,7 +24,7 @@ th{background:#1e3d8f;color:#fff}
 <body>
 
 <div class="card">
-<h2>Validation Report Generator 3.0</h2>
+<h2>Validation Report Generator 4.0</h2>
 
 <input type="file" id="fileInput" accept=".xlsx" />
 <br>
@@ -36,7 +36,6 @@ th{background:#1e3d8f;color:#fff}
 <div id="postFinalize" class="hidden">
 <button id="pdfBtn">Download PDF</button>
 <button id="excelBtn">Download Excel</button>
-<button id="htmlBtn">HTML Link</button>
 <button id="editBtn">Edit Insights</button>
 </div>
 
@@ -51,7 +50,6 @@ function bindEvents(){
   saveBtn.onclick = saveInsights
   pdfBtn.onclick = downloadPDF
   excelBtn.onclick = downloadExcel
-  htmlBtn.onclick = generateHTMLLink
   editBtn.onclick = enableEditing
   resetBtn.onclick = resetApp
 }
@@ -59,6 +57,12 @@ function bindEvents(){
 let globalReportHTML = ""
 let insightsData = []
 let measData = []
+let matrixDataRaw = []
+let projectDataRaw = {}
+
+function formatLabel(key){
+  return key.replace(/([A-Z])/g, ' $1').replace(/_/g,' ').replace(/^./, str => str.toUpperCase())
+}
 
 function processFile(){
 
@@ -78,9 +82,11 @@ let measSheet = wb.Sheets["Measurements"] || wb.Sheets[wb.SheetNames[1]]
 let raw = XLSX.utils.sheet_to_json(rawSheet)
 let meas = measSheet ? XLSX.utils.sheet_to_json(measSheet) : []
 measData = meas
+matrixDataRaw = raw
+projectDataRaw = raw[0] || {}
 
 let rooms = [...new Set(raw.map(r=>r.Room))]
-let project = raw[0] || {}
+let project = projectDataRaw
 
 let html = `<div id="reportContainer">`
 
@@ -92,7 +98,7 @@ html += `<tr><th>Display Name</th><th>Value</th></tr>`
 
 Object.keys(project).forEach(k=>{
 if(!["Room","Section","Item","Value"].includes(k)){
-html += `<tr><td>${k}</td><td>${project[k]}</td></tr>`
+html += `<tr><td>${formatLabel(k)}</td><td>${project[k]}</td></tr>`
 }
 })
 html += `</table></div>`
@@ -104,10 +110,12 @@ rooms.forEach(r=>html+=`<th>${r}</th>`)
 html += `</tr>`
 
 let wallRows = raw.filter(r=>r.Section==="Wall")
+let roomRows = raw.filter(r=>r.Section==="Room")
+
 let wallQuestions = [...new Set(wallRows.map(r=>r.Item))]
+let roomQuestions = [...new Set(roomRows.map(r=>r.Item))]
 
 html += `<tr class="header"><td colspan="${rooms.length+1}">WALL VALIDATION</td></tr>`
-
 wallQuestions.forEach(q=>{
 html += `<tr><td>${q}</td>`
 rooms.forEach(room=>{
@@ -118,11 +126,7 @@ html += `<td>${val}</td>`
 html += `</tr>`
 })
 
-let roomRows = raw.filter(r=>r.Section==="Room")
-let roomQuestions = [...new Set(roomRows.map(r=>r.Item))]
-
 html += `<tr class="header"><td colspan="${rooms.length+1}">ROOM VALIDATION</td></tr>`
-
 roomQuestions.forEach(q=>{
 html += `<tr><td>${q}</td>`
 rooms.forEach(room=>{
@@ -161,7 +165,7 @@ rooms.forEach(r=>html+=`<th>${r}</th>`)
 html += `</tr>`
 
 keys.forEach(k=>{
-html += `<tr><td>${k}</td>`
+html += `<tr><td>${formatLabel(k)}</td>`
 rooms.forEach(room=>{
 let rec = meas.find(m=>m.Room===room)
 html += `<td>${rec ? rec[k] || "" : ""}</td>`
@@ -177,7 +181,6 @@ reportPreview.innerHTML = html
 
 globalReportHTML = html
 
-// UI FLOW
 generateBtn.classList.add("hidden")
 saveBtn.classList.remove("hidden")
 
@@ -188,7 +191,6 @@ reader.readAsArrayBuffer(file)
 }
 
 function saveInsights(){
-
 let table = document.getElementById("insightTable")
 let headers = Array.from(table.rows[0].cells).map(c=>c.innerText)
 
@@ -203,96 +205,162 @@ obj[headers[j]] = row.cells[j].innerText
 insightsData.push(obj)
 }
 
-// lock
-
 document.querySelectorAll("[contenteditable]").forEach(el=>el.removeAttribute("contenteditable"))
 
 saveBtn.classList.add("hidden")
 postFinalize.classList.remove("hidden")
-
 }
 
 function enableEditing(){
-
 document.querySelectorAll("#insightTable td:not(:first-child)").forEach(el=>{
 el.setAttribute("contenteditable","true")
 })
-
 postFinalize.classList.add("hidden")
 saveBtn.classList.remove("hidden")
-
 }
 
 function downloadPDF(){
 let content = document.getElementById("reportContainer").outerHTML
 let w = window.open()
-w.document.write(`<html><head><style>.section{page-break-before:always}</style></head><body>${content}</body></html>`)
+
+w.document.write(`
+<html>
+<head>
+<style>
+body{font-family:Arial;padding:20px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #000;padding:8px}
+th{background:#1e3d8f;color:#fff;font-weight:bold}
+.section{page-break-before:always}
+.section:first-child{page-break-before:auto}
+.header{background:#eef2ff;font-weight:bold}
+</style>
+</head>
+<body>
+${content}
+</body>
+</html>
+`)
+
 setTimeout(()=>w.print(),500)
 }
 
 function downloadExcel(){
-
 let wb = XLSX.utils.book_new()
 
-// 1. Insights
+// Insights
 let ws1 = XLSX.utils.json_to_sheet(insightsData)
+autoFit(ws1)
 XLSX.utils.book_append_sheet(wb, ws1, "Insights")
 
-// 2. Measurements
+// Measurements
 let ws2 = XLSX.utils.json_to_sheet(measData)
+autoFit(ws2)
 XLSX.utils.book_append_sheet(wb, ws2, "Measurements")
 
-// 3. Project Details
-let projectTable = document.querySelector("#reportContainer .section table")
-let projectData = []
-if(projectTable){
-  for(let i=1;i<projectTable.rows.length;i++){
-    projectData.push({
-      "Display Name": projectTable.rows[i].cells[0].innerText,
-      "Value": projectTable.rows[i].cells[1].innerText
-    })
-  }
+// Project Details
+let projArr = []
+Object.keys(projectDataRaw).forEach(k=>{
+if(!["Room","Section","Item","Value"].includes(k)){
+projArr.push({"Display Name":formatLabel(k),"Value":projectDataRaw[k]})
 }
-let ws3 = XLSX.utils.json_to_sheet(projectData)
+})
+let ws3 = XLSX.utils.json_to_sheet(projArr)
+autoFit(ws3)
 XLSX.utils.book_append_sheet(wb, ws3, "Project Details")
 
-// 4. Validation Matrix
-let matrixTable = document.querySelectorAll("#reportContainer .section table")[1]
-let matrixData = []
+// Validation Matrix (Pivot Structure)
+let rooms = [...new Set(matrixDataRaw.map(r=>r.Room))]
 
-if(matrixTable){
-  let headers = Array.from(matrixTable.rows[0].cells).map(c=>c.innerText)
+function buildMatrix(sectionName){
+  let rows = matrixDataRaw.filter(r=>r.Section===sectionName)
+  let questions = [...new Set(rows.map(r=>r.Item))]
+  let result = []
 
-  for(let i=1;i<matrixTable.rows.length;i++){
-    let row = matrixTable.rows[i]
-
-    // Skip header rows like WALL / ROOM labels
-    if(row.classList.contains("header")) continue
-
-    let obj = {}
-    for(let j=0;j<row.cells.length;j++){
-      obj[headers[j]] = row.cells[j].innerText
-    }
-    matrixData.push(obj)
-  }
+  questions.forEach(q=>{
+    let obj = {Question:q}
+    rooms.forEach(room=>{
+      let rec = rows.find(r=>r.Room===room && r.Item===q)
+      obj[room] = rec ? [rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
+    })
+    result.push(obj)
+  })
+  return result
 }
 
-let ws4 = XLSX.utils.json_to_sheet(matrixData)
+let wallMatrix = buildMatrix("Wall")
+let roomMatrix = buildMatrix("Room")
+
+let finalMatrix = []
+finalMatrix.push({Question:"WALL VALIDATION"})
+finalMatrix.push(...wallMatrix)
+finalMatrix.push({Question:"ROOM VALIDATION"})
+finalMatrix.push(...roomMatrix)
+
+let ws4 = XLSX.utils.json_to_sheet(finalMatrix)
+autoFit(ws4)
 XLSX.utils.book_append_sheet(wb, ws4, "Validation Matrix")
 
 XLSX.writeFile(wb, "Validation_Report.xlsx")
-
 }
 
-function generateHTMLLink(){
-let blob = new Blob([`<html><body>${globalReportHTML}</body></html>`], {type:"text/html"})
-let url = URL.createObjectURL(blob)
-window.open(url)
+function autoFit(ws){
+let range = XLSX.utils.decode_range(ws['!ref'])
+let colWidths = []
+
+for(let C=range.s.c; C<=range.e.c; C++){
+  let maxLen = 10
+  for(let R=range.s.r; R<=range.e.r; R++){
+    let cell = ws[XLSX.utils.encode_cell({r:R,c:C})]
+    if(cell && cell.v){
+      maxLen = Math.max(maxLen, cell.v.toString().length)
+    }
+  }
+  colWidths.push({wch: maxLen + 2})
 }
 
-function resetApp(){
-location.reload()
+ws['!cols'] = colWidths
 }
+)
+}
+})
+let ws3 = XLSX.utils.json_to_sheet(projArr)
+formatSheet(ws3)
+XLSX.utils.book_append_sheet(wb, ws3, "Project Details")
+
+// Matrix with grouping
+let matrix = []
+
+matrix.push({Section:"WALL"})
+matrixDataRaw.filter(r=>r.Section==="Wall").forEach(r=>matrix.push(r))
+
+matrix.push({Section:"ROOM"})
+matrixDataRaw.filter(r=>r.Section==="Room").forEach(r=>matrix.push(r))
+
+let ws4 = XLSX.utils.json_to_sheet(matrix)
+formatSheet(ws4)
+XLSX.utils.book_append_sheet(wb, ws4, "Validation Matrix")
+
+XLSX.writeFile(wb, "Validation_Report.xlsx")
+}
+
+function formatSheet(ws){
+let range = XLSX.utils.decode_range(ws['!ref'])
+
+// Bold header
+for(let C=range.s.c; C<=range.e.c; C++){
+let cell = ws[XLSX.utils.encode_cell({r:0,c:C})]
+if(cell){ cell.s = {font:{bold:true}} }
+}
+
+// Auto width
+ws['!cols'] = []
+for(let C=range.s.c; C<=range.e.c; C++){
+ws['!cols'].push({wch:20})
+}
+}
+
+function resetApp(){ location.reload() }
 
 document.addEventListener("DOMContentLoaded", bindEvents)
 
