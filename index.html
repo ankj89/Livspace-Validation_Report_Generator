@@ -22,7 +22,7 @@ button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radiu
 <input type="file" id="fileInput" accept=".xlsx" />
 <br>
 <button onclick="processFile()">Generate Report</button>
-
+<button onclick="downloadPDF()">Download PDF</button>
 </div>
 
 <script>
@@ -31,16 +31,13 @@ window.onerror = function(msg, url, line){
 alert("JS Error: " + msg + " at line " + line)
 }
 
+let globalReportHTML = ""  // for PDF
+
 function processFile(){
 
-let fileInput = document.getElementById("fileInput")
+let file = document.getElementById("fileInput").files[0]
+if(!file){ alert("Upload file first"); return }
 
-if(!fileInput.files.length){
-alert("Upload file first")
-return
-}
-
-let file = fileInput.files[0]
 let reader = new FileReader()
 
 reader.onload = function(e){
@@ -58,161 +55,136 @@ let meas = measSheet ? XLSX.utils.sheet_to_json(measSheet) : []
 
 let rooms = [...new Set(raw.map(r=>r.Room))]
 
-/* ---------------- PROJECT (DISPLAY LABELS) ---------------- */
+/* ---------------- PROJECT ---------------- */
 
-const displayMap = {
-pid:"Project ID",
-cx:"Client Name",
-city:"City",
-address:"Address",
-society:"Society Name",
-flat:"Flat No",
-floorNo:"Floor No",
-propertyType:"Property Type",
-serviceLiftUsage:"Service Lift Usage",
-loadingArea:"Loading Area",
-societyDemolish:"Demolition Rules",
-vehicleEntry:"Vehicle Entry",
-waterPoint:"Water Supply",
-electricPoint:"Electric Supply",
-workNOC:"NOC Requirement",
-societyRestrictions:"Restrictions",
-societyWorktimings:"Work Timings"
-}
+let project = raw[0] || {}
 
-let ignoreCols = ["Room","Section","Item","Value","Walls","Comments"]
+/* ---------------- BUILD HTML REPORT ---------------- */
 
-let project = {}
+let html = `
+<html>
+<head>
+<style>
+body{font-family:Arial;padding:20px}
+h1{color:#1e3d8f}
+.section{margin-top:30px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #000;padding:8px;text-align:left}
+th{background:#1e3d8f;color:#fff}
+.header{background:#eef2ff;font-weight:bold}
+.logo{font-size:22px;font-weight:bold;margin-bottom:10px}
+</style>
+</head>
+<body>
 
-raw.forEach(r=>{
-Object.keys(r).forEach(k=>{
-if(!ignoreCols.includes(k) && !project[k]){
-project[k] = r[k]
-}
-})
-})
+<div class="logo">SITE VALIDATION REPORT</div>
 
-let projectSheet = []
+<div class="section">
+<h2>Project & Society</h2>
+<table>
+<tr><th>Parameter</th><th>Value</th></tr>
+`
 
 Object.keys(project).forEach(k=>{
-projectSheet.push({
-Parameter: displayMap[k] || k,
-Value: project[k]
+if(!["Room","Section","Item","Value"].includes(k)){
+html += `<tr><td>${k}</td><td>${project[k]}</td></tr>`
+}
 })
-})
+
+html += `</table></div>`
 
 /* ---------------- VALIDATION MATRIX ---------------- */
 
-let combinedMatrix = []
+html += `<div class="section"><h2>Validation Matrix</h2><table>`
 
-let header = {Question:"Question"}
-rooms.forEach(r=>header[r]=r)
-combinedMatrix.push(header)
-
-combinedMatrix.push({Question:""})
-combinedMatrix.push({Question:"WALL VALIDATION"})
+html += `<tr><th>Question</th>`
+rooms.forEach(r=>html+=`<th>${r}</th>`)
+html += `</tr>`
 
 let wallRows = raw.filter(r=>r.Section==="Wall")
 let wallQuestions = [...new Set(wallRows.map(r=>r.Item))]
 
+html += `<tr class="header"><td colspan="${rooms.length+1}">WALL VALIDATION</td></tr>`
+
 wallQuestions.forEach(q=>{
-let row = {Question:q}
+html += `<tr><td>${q}</td>`
 rooms.forEach(room=>{
 let rec = wallRows.find(r=>r.Room===room && r.Item===q)
-row[room] = rec ? [rec.Walls,rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
+let val = rec ? [rec.Walls,rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
+html += `<td>${val}</td>`
 })
-combinedMatrix.push(row)
+html += `</tr>`
 })
-
-combinedMatrix.push({Question:""})
-combinedMatrix.push({Question:"ROOM VALIDATION"})
 
 let roomRows = raw.filter(r=>r.Section==="Room")
 let roomQuestions = [...new Set(roomRows.map(r=>r.Item))]
 
+html += `<tr class="header"><td colspan="${rooms.length+1}">ROOM VALIDATION</td></tr>`
+
 roomQuestions.forEach(q=>{
-let row = {Question:q}
+html += `<tr><td>${q}</td>`
 rooms.forEach(room=>{
 let rec = roomRows.find(r=>r.Room===room && r.Item===q)
-row[room] = rec ? [rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
+let val = rec ? [rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
+html += `<td>${val}</td>`
 })
-combinedMatrix.push(row)
+html += `</tr>`
 })
 
-/* ---------------- INSIGHTS (NEW FORMAT) ---------------- */
+html += `</table></div>`
 
-let insights = []
+/* ---------------- INSIGHTS ---------------- */
+
+html += `<div class="section"><h2>Insights</h2><table>`
+
+html += `<tr><th>SNo</th>`
+rooms.forEach(r=>html+=`<th>${r}</th>`)
+html += `</tr>`
 
 for(let i=1;i<=25;i++){
-let row = {SNo:i}
-rooms.forEach(r=>row[r]="")
-insights.push(row)
+html += `<tr><td>${i}</td>`
+rooms.forEach(()=>html+=`<td style="height:40px"></td>`)
+html += `</tr>`
 }
 
-/* ---------------- MEASUREMENTS (TRANSPOSED) ---------------- */
+html += `</table></div>`
 
-let measurementSheet = []
+/* ---------------- MEASUREMENTS ---------------- */
 
-if(meas.length>0){
+html += `<div class="section"><h2>Measurements</h2><table>`
 
+if(meas.length){
 let keys = Object.keys(meas[0]).filter(k=>k!=="Room")
 
+html += `<tr><th>Measurement</th>`
+rooms.forEach(r=>html+=`<th>${r}</th>`)
+html += `</tr>`
+
 keys.forEach(k=>{
-let row = {Measurement:k}
+html += `<tr><td>${k}</td>`
 meas.forEach(r=>{
-row[r.Room] = r[k] || ""
+html += `<td>${r[k]||""}</td>`
 })
-measurementSheet.push(row)
-})
-
-}else{
-measurementSheet=[{}]
-}
-
-/* ---------------- EXPORT ---------------- */
-
-let wbNew = XLSX.utils.book_new()
-
-let ws1 = XLSX.utils.json_to_sheet(projectSheet)
-let ws2 = XLSX.utils.json_to_sheet(combinedMatrix)
-let ws3 = XLSX.utils.json_to_sheet(insights)
-let ws4 = XLSX.utils.json_to_sheet(measurementSheet)
-
-/* 🔥 FORMATTING */
-
-function setWidth(ws, count, width){
-ws['!cols'] = Array(count).fill({wch:width})
-}
-
-function wrap(ws){
-Object.keys(ws).forEach(c=>{
-if(c[0]==="!") return
-ws[c].s = {alignment:{wrapText:true,vertical:"top"}}
+html += `</tr>`
 })
 }
 
-/* Apply */
-setWidth(ws1,2,40)
-setWidth(ws2,rooms.length+1,35)
-setWidth(ws3,rooms.length+1,40)
-setWidth(ws4,rooms.length+1,25)
+html += `</table></div>`
 
-wrap(ws2)
-wrap(ws3)
+html += `</body></html>`
 
-/* Sheets */
-XLSX.utils.book_append_sheet(wbNew, ws1, "Project & Society")
-XLSX.utils.book_append_sheet(wbNew, ws2, "Validation Matrix")
-XLSX.utils.book_append_sheet(wbNew, ws3, "Insights")
-XLSX.utils.book_append_sheet(wbNew, ws4, "Measurements")
+/* STORE FOR PDF */
+globalReportHTML = html
 
-XLSX.writeFile(wbNew, "Validation_Report.xlsx")
+/* OPEN PREVIEW */
+let w = window.open()
+w.document.write(html)
 
-alert("✅ Enterprise Report Generated")
+alert("✅ Report Ready (Use Download PDF button)")
 
 }catch(err){
 console.error(err)
-alert("Error processing file. Check console")
+alert("Error processing file")
 }
 
 }
@@ -221,11 +193,22 @@ reader.readAsArrayBuffer(file)
 
 }
 
-document.addEventListener("DOMContentLoaded", ()=>{
-console.log("App Loaded ✅")
-})
+/* PDF DOWNLOAD */
+function downloadPDF(){
+
+if(!globalReportHTML){
+alert("Generate report first")
+return
+}
+
+let w = window.open()
+w.document.write(globalReportHTML)
+w.print()
+}
 
 </script>
+
+
 
 </body>
 </html>
