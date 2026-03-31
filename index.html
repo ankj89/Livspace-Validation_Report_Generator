@@ -21,9 +21,9 @@ button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radiu
 
 <input type="file" id="fileInput" accept=".xlsx" />
 <br>
-<button onclick="processFile()">Generate Report</button>
-<button onclick="downloadPDF()">Download PDF</button>
-<button onclick="finalizeReport()">Finalize Report</button>
+<button id="generateBtn">Generate Report</button>
+<button id="pdfBtn">Download PDF</button>
+  
 </div>
 
 <script>
@@ -63,20 +63,7 @@ let project = raw[0] || {}
 /* ---------------- BUILD HTML REPORT ---------------- */
 
 let html = `
-<html>
-<head>
-<style>
-body{font-family:Arial;padding:20px}
-h1{color:#1e3d8f}
-.section{margin-top:30px}
-table{border-collapse:collapse;width:100%}
-th,td{border:1px solid #000;padding:8px;text-align:left}
-th{background:#1e3d8f;color:#fff}
-.header{background:#eef2ff;font-weight:bold}
-.logo{font-size:22px;font-weight:bold;margin-bottom:10px}
-</style>
-</head>
-<body>
+<div id="reportContainer">
 
 <div class="logo">SITE VALIDATION REPORT</div>
 
@@ -174,14 +161,13 @@ html += `</tr>`
 
 html += `</table></div>`
 
-html += `</body></html>`
+html += `</div>`
 
 /* STORE FOR PDF */
 globalReportHTML = html
 
 /* OPEN PREVIEW */
-let w = window.open()
-w.document.write(html)
+document.body.innerHTML = html
 
 alert("✅ Report Ready (Use Download PDF button)")
 
@@ -199,25 +185,44 @@ reader.readAsArrayBuffer(file)
 /* PDF DOWNLOAD */
 function downloadPDF(){
 
+let report = document.getElementById("reportContainer")
+
+if(!report){
+alert("Generate report first")
+return
+}
+
 /* Disable editing */
-document.querySelectorAll("[contenteditable]").forEach(el=>{
+report.querySelectorAll("[contenteditable]").forEach(el=>{
 el.removeAttribute("contenteditable")
 })
 
-/* Clean UI */
-document.querySelectorAll("td").forEach(td=>{
-td.style.outline = "none"
-})
-
-/* Capture LIVE content (with insights) */
-let content = document.documentElement.outerHTML
+/* Clone clean content */
+let content = report.outerHTML
 
 let w = window.open()
-w.document.write(content)
+
+w.document.write(`
+<html>
+<head>
+<title>Validation Report</title>
+<style>
+body{font-family:Arial;padding:20px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #000;padding:8px}
+th{background:#1e3d8f;color:#fff}
+.section{margin-top:30px}
+.header{background:#eef2ff;font-weight:bold}
+</style>
+</head>
+<body>
+${content}
+</body>
+</html>
+`)
 
 setTimeout(()=>{
 w.print()
-location.reload()
 },500)
 
 }
@@ -253,7 +258,12 @@ console.log("Captured Insights:", insightsData)
 alert("Insights captured ✅ Now download PDF")
 
 }
+document.addEventListener("DOMContentLoaded", ()=>{
 
+document.getElementById("generateBtn").addEventListener("click", processFile)
+document.getElementById("pdfBtn").addEventListener("click", downloadPDF)
+
+})
 </script>
 
 
