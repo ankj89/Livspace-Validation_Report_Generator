@@ -46,467 +46,306 @@ th{background:#1e3d8f;color:#fff;font-weight:bold}
 <script>
 
 function bindEvents(){
-  document.getElementById("generateBtn").onclick = processFile
-  document.getElementById("saveBtn").onclick = saveInsights
-  document.getElementById("pdfBtn").onclick = downloadPDF
-  document.getElementById("excelBtn").onclick = downloadExcel
-  document.getElementById("editBtn").onclick = enableEditing
-  document.getElementById("resetBtn").onclick = resetApp
+  var gen = document.getElementById("generateBtn");
+  var save = document.getElementById("saveBtn");
+  var pdf = document.getElementById("pdfBtn");
+  var excel = document.getElementById("excelBtn");
+  var edit = document.getElementById("editBtn");
+  var reset = document.getElementById("resetBtn");
+
+  if(gen) gen.onclick = processFile;
+  if(save) save.onclick = saveInsights;
+  if(pdf) pdf.onclick = downloadPDF;
+  if(excel) excel.onclick = downloadExcel;
+  if(edit) edit.onclick = enableEditing;
+  if(reset) reset.onclick = resetApp;
 }
 
-let insightsData = []
-let measData = []
-let matrixDataRaw = []
-let projectDataRaw = {}
+var insightsData = [];
+var measData = [];
+var matrixDataRaw = [];
+var projectDataRaw = {};
 
 function formatLabel(key){
-  return key.replace(/([A-Z])/g,' $1').replace(/_/g,' ').replace(/^./,c=>c.toUpperCase())
+  return key.replace(/([A-Z])/g,' $1').replace(/_/g,' ').replace(/^./,function(c){return c.toUpperCase();});
+}
+
+function getUnique(arr, key){
+  var map = {}, out = [];
+  for(var i=0;i<arr.length;i++){
+    var val = arr[i][key];
+    if(!map[val]){ map[val]=true; out.push(val); }
+  }
+  return out;
 }
 
 function processFile(){
 
-let file = document.getElementById("fileInput").files[0]
-if(!file){ alert("Upload file first"); return }
+var fileEl = document.getElementById("fileInput");
+var file = fileEl && fileEl.files ? fileEl.files[0] : null;
+if(!file){ alert("Upload file first"); return; }
 
-let reader = new FileReader()
+var reader = new FileReader();
 
 reader.onload = function(e){
 
-let data = new Uint8Array(e.target.result)
-let wb = XLSX.read(data,{type:'array'})
+var data = new Uint8Array(e.target.result);
+var wb = XLSX.read(data,{type:'array'});
 
-let rawSheet = wb.Sheets[wb.SheetNames[0]]
-let measSheet = wb.Sheets[wb.SheetNames[1]]
+var rawSheet = wb.Sheets[wb.SheetNames[0]];
+var measSheet = wb.Sheets[wb.SheetNames[1]];
 
-let raw = XLSX.utils.sheet_to_json(rawSheet)
-let meas = measSheet ? XLSX.utils.sheet_to_json(measSheet) : []
+var raw = XLSX.utils.sheet_to_json(rawSheet);
+var meas = measSheet ? XLSX.utils.sheet_to_json(measSheet) : [];
 
-measData = meas
-matrixDataRaw = raw
-projectDataRaw = raw[0] || {}
+if(!raw || !raw.length){ alert("No data found in Excel"); return; }
 
-let rooms = [...new Set(raw.map(r=>r.Room))]
+measData = meas;
+matrixDataRaw = raw;
+projectDataRaw = raw[0] || {};
 
-let html = `<div id="reportContainer">`
-html += `<div class="logo">SITE VALIDATION REPORT</div>`
+var rooms = getUnique(raw, "Room");
 
-html += `<div class="section"><h2>Project Details</h2><table>`
-html += `<tr><th>Display Name</th><th>Value</th></tr>`
+var html = '<div id="reportContainer">';
+html += '<div class="logo">SITE VALIDATION REPORT</div>';
 
-Object.keys(projectDataRaw).forEach(k=>{
-if(!["Room","Section","Item","Value"].includes(k)){
-html += `<tr><td>${formatLabel(k)}</td><td>${projectDataRaw[k]}</td></tr>`
+html += '<div class="section"><h2>Project Details</h2><table>';
+html += '<tr><th>Display Name</th><th>Value</th></tr>';
+
+for(var k in projectDataRaw){
+  if(["Room","Section","Item","Value"].indexOf(k) === -1){
+    html += '<tr><td>'+formatLabel(k)+'</td><td>'+projectDataRaw[k]+'</td></tr>';
+  }
 }
-})
-html += `</table></div>`
+html += '</table></div>';
 
-html += `<div class="section"><h2>Validation Matrix</h2><table>`
+html += '<div class="section"><h2>Validation Matrix</h2><table>';
 
-// Header with 2 cols per room (Value+Wall, Comments)
-html += `<tr><th>Question</th>`
-rooms.forEach(r=>{
-  html += `<th>${r} (Result)</th><th>${r} (Comments)</th>`
-})
-html += `</tr>`
-
-let wallRows = raw.filter(r=>r.Section==="Wall")
-let roomRows = raw.filter(r=>r.Section==="Room")
-
-let wallQuestions = [...new Set(wallRows.map(r=>r.Item))]
-let roomQuestions = [...new Set(roomRows.map(r=>r.Item))]
-
-// WALL SECTION
-html += `<tr class="header"><td colspan="${1 + rooms.length*2}">WALL VALIDATION</td></tr>`
-wallQuestions.forEach(q=>{
-  html += `<tr><td>${q}</td>`
-  rooms.forEach(room=>{
-    let rec = wallRows.find(r=>r.Room===room && r.Item===q)
-    let result = rec ? [rec.Walls, rec.Value].filter(Boolean).join(" | ") : ""
-    let comments = rec ? (rec.Comments || "") : ""
-    html += `<td>${result}</td><td>${comments}</td>`
-  })
-  html += `</tr>`
-})
-
-// ROOM SECTION
-html += `<tr class="header"><td colspan="${1 + rooms.length*2}">ROOM VALIDATION</td></tr>`
-roomQuestions.forEach(q=>{
-  html += `<tr><td>${q}</td>`
-  rooms.forEach(room=>{
-    let rec = roomRows.find(r=>r.Room===room && r.Item===q)
-    let result = rec ? (rec.Value || "") : ""
-    let comments = rec ? (rec.Comments || "") : ""
-    html += `<td>${result}</td><td>${comments}</td>`
-  })
-  html += `</tr>`
-})
-
-html += `</table></div>`
-
-html += `<div class="section"><h2>Insights</h2><table id="insightTable">`
-html += `<tr><th>SNo</th>`
-rooms.forEach(r=>html+=`<th>${r}</th>`)
-html += `</tr>`
-
-for(let i=1;i<=25;i++){
-html += `<tr><td>${i}</td>`
-rooms.forEach(()=>{ html += `<td contenteditable="true"></td>` })
-html += `</tr>`
+html += '<tr><th>Question</th>';
+for(var r=0;r<rooms.length;r++){
+  html += '<th>'+rooms[r]+' (Result)</th><th>'+rooms[r]+' (Comments)</th>';
 }
-html += `</table></div>`
+html += '</tr>';
 
-html += `<div class="section"><h2>Measurements</h2><table>`
+var wallRows = raw.filter(function(x){return x.Section==="Wall"});
+var roomRows = raw.filter(function(x){return x.Section==="Room"});
+
+var wallQuestions = getUnique(wallRows,"Item");
+var roomQuestions = getUnique(roomRows,"Item");
+
+html += '<tr class="header"><td colspan="'+(1 + rooms.length*2)+'">WALL VALIDATION</td></tr>';
+for(var i=0;i<wallQuestions.length;i++){
+  html += '<tr><td>'+wallQuestions[i]+'</td>';
+  for(var j=0;j<rooms.length;j++){
+    var rec = null;
+    for(var z=0;z<wallRows.length;z++){
+      if(wallRows[z].Room===rooms[j] && wallRows[z].Item===wallQuestions[i]){ rec = wallRows[z]; break; }
+    }
+    var result = rec ? ((rec.Walls?rec.Walls+" | ":"") + (rec.Value||"")) : "";
+    var comments = rec ? (rec.Comments || "") : "";
+    html += '<td>'+result+'</td><td>'+comments+'</td>';
+  }
+  html += '</tr>';
+}
+
+html += '<tr class="header"><td colspan="'+(1 + rooms.length*2)+'">ROOM VALIDATION</td></tr>';
+for(var i2=0;i2<roomQuestions.length;i2++){
+  html += '<tr><td>'+roomQuestions[i2]+'</td>';
+  for(var j2=0;j2<rooms.length;j2++){
+    var rec2 = null;
+    for(var z2=0;z2<roomRows.length;z2++){
+      if(roomRows[z2].Room===rooms[j2] && roomRows[z2].Item===roomQuestions[i2]){ rec2 = roomRows[z2]; break; }
+    }
+    var result2 = rec2 ? (rec2.Value || "") : "";
+    var comments2 = rec2 ? (rec2.Comments || "") : "";
+    html += '<td>'+result2+'</td><td>'+comments2+'</td>';
+  }
+  html += '</tr>';
+}
+
+html += '</table></div>';
+
+html += '<div class="section"><h2>Insights</h2><table id="insightTable">';
+html += '<tr><th>SNo</th>';
+for(var r2=0;r2<rooms.length;r2++){ html += '<th>'+rooms[r2]+'</th>'; }
+html += '</tr>';
+
+for(var x=1;x<=25;x++){
+  html += '<tr><td>'+x+'</td>';
+  for(var y=0;y<rooms.length;y++){ html += '<td contenteditable="true"></td>'; }
+  html += '</tr>';
+}
+html += '</table></div>';
+
+html += '<div class="section"><h2>Measurements</h2><table>';
 if(meas.length){
-let keys = Object.keys(meas[0]).filter(k=>k!=="Room")
-html += `<tr><th>Measurement</th>`
-rooms.forEach(r=>html+=`<th>${r}</th>`)
-html += `</tr>`
+  var keys = Object.keys(meas[0]).filter(function(k){return k!=="Room"});
+  html += '<tr><th>Measurement</th>';
+  for(var r3=0;r3<rooms.length;r3++){ html += '<th>'+rooms[r3]+'</th>'; }
+  html += '</tr>';
 
-keys.forEach(k=>{
-html += `<tr><td>${formatLabel(k)}</td>`
-rooms.forEach(room=>{
-let rec = meas.find(m=>m.Room===room)
-html += `<td>${rec ? rec[k] : ""}</td>`
-})
-html += `</tr>`
-})
+  for(var k2=0;k2<keys.length;k2++){
+    html += '<tr><td>'+formatLabel(keys[k2])+'</td>';
+    for(var r4=0;r4<rooms.length;r4++){
+      var rec3 = null;
+      for(var z3=0;z3<meas.length;z3++){
+        if(meas[z3].Room===rooms[r4]){ rec3 = meas[z3]; break; }
+      }
+      html += '<td>'+(rec3 ? (rec3[keys[k2]]||"") : "")+'</td>';
+    }
+    html += '</tr>';
+  }
 }
-html += `</table></div>`
+html += '</table></div>';
 
-html += `</div>`
+html += '</div>';
 
-document.getElementById("reportPreview").innerHTML = html
+document.getElementById("reportPreview").innerHTML = html;
 
-document.getElementById("generateBtn").classList.add("hidden")
-document.getElementById("saveBtn").classList.remove("hidden")
+document.getElementById("generateBtn").classList.add("hidden");
+document.getElementById("saveBtn").classList.remove("hidden");
 
-}
+};
 
-reader.readAsArrayBuffer(file)
+reader.readAsArrayBuffer(file);
 }
 
 function saveInsights(){
-let table = document.getElementById("insightTable")
-let headers = Array.from(table.rows[0].cells).map(c=>c.innerText)
+var table = document.getElementById("insightTable");
+var headers = [];
+for(var i=0;i<table.rows[0].cells.length;i++){ headers.push(table.rows[0].cells[i].innerText); }
 
-insightsData = []
-
-for(let i=1;i<table.rows.length;i++){
-let row = table.rows[i]
-let obj = {}
-for(let j=0;j<row.cells.length;j++){
-obj[headers[j]] = row.cells[j].innerText
+insightsData = [];
+for(var r=1;r<table.rows.length;r++){
+  var obj = {};
+  for(var c=0;c<table.rows[r].cells.length;c++){
+    obj[headers[c]] = table.rows[r].cells[c].innerText;
+  }
+  insightsData.push(obj);
 }
-insightsData.push(obj)
-}
 
-document.querySelectorAll("[contenteditable]").forEach(el=>el.removeAttribute("contenteditable"))
+var editable = document.querySelectorAll("[contenteditable]");
+for(var i2=0;i2<editable.length;i2++){ editable[i2].removeAttribute("contenteditable"); }
 
-document.getElementById("saveBtn").classList.add("hidden")
-document.getElementById("postFinalize").classList.remove("hidden")
+document.getElementById("saveBtn").classList.add("hidden");
+document.getElementById("postFinalize").classList.remove("hidden");
 }
 
 function enableEditing(){
-document.querySelectorAll("#insightTable td:not(:first-child)").forEach(el=>{
-el.setAttribute("contenteditable","true")
-})
-document.getElementById("postFinalize").classList.add("hidden")
-document.getElementById("saveBtn").classList.remove("hidden")
+var cells = document.querySelectorAll("#insightTable td:not(:first-child)");
+for(var i=0;i<cells.length;i++){ cells[i].setAttribute("contenteditable","true"); }
+
+document.getElementById("postFinalize").classList.add("hidden");
+document.getElementById("saveBtn").classList.remove("hidden");
 }
 
 function downloadPDF(){
-  const content = document.getElementById("reportContainer").outerHTML
-  const w = window.open()
+var content = document.getElementById("reportContainer").outerHTML;
+var w = window.open();
 
-  w.document.write(`
-  <html>
-  <head>
-  <title>Validation Report</title>
-  <style>
+w.document.write('<html><head><style>@page{size:A4 landscape;margin:15mm} body{font-family:Arial;padding:10px} th,td{border:1px solid #000;padding:6px;font-size:10px} table{border-collapse:collapse;width:100%} th{background:#d81b60;color:#fff} .header td{background:#f8bbd0} .section{page-break-before:always} .section:first-child{page-break-before:auto}</style></head><body>'+content+'</body></html>');
 
-    @page {
-      size: A4 landscape;
-      margin: 15mm;
-    }
-
-    body{
-      font-family:Arial, Helvetica, sans-serif;
-      padding:10px;
-      color:#111;
-    }
-
-    .logo{
-      font-size:20px;
-      font-weight:bold;
-      margin-bottom:15px;
-      color:#d81b60;
-    }
-
-    .section{
-      page-break-before:always;
-      margin-top:20px;
-    }
-
-    .section:first-child{
-      page-break-before:auto;
-    }
-
-    table{
-      border-collapse:collapse;
-      width:100%;
-      table-layout:fixed;
-      margin-top:10px;
-      font-size:10px;
-    }
-
-    th, td{
-      border:1.2px solid #000;
-      padding:6px;
-      vertical-align:top;
-      word-wrap:break-word;
-      white-space:pre-wrap;
-    }
-
-    th{
-      background:#d81b60;
-      color:#fff;
-      font-weight:bold;
-      text-align:left;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    .header td{
-      background:#f8bbd0;
-      font-weight:bold;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    tr:nth-child(even) td{
-      background:#fff0f5;
-    }
-
-    tr{
-      page-break-inside:avoid;
-    }
-
-    /* Fit wide tables */
-    table {
-      width: 100%;
-    }
-
-  </style>
-  </head>
-  <body>
-  ${content}
-  </body>
-  </html>
-  `)
-
-  setTimeout(()=>{ w.print() },500)
-}
-    .logo{font-size:22px;font-weight:bold;margin-bottom:20px;color:#d81b60}
-    .section{page-break-before:always; margin-top:24px}
-    .section:first-child{page-break-before:auto}
-
-    table{border-collapse:collapse;width:100%;table-layout:fixed;margin-top:10px}
-
-    th, td{
-      border:1.5px solid #000;
-      padding:8px 10px;
-      font-size:12px;
-      vertical-align:top;
-      word-wrap:break-word;
-      white-space:pre-wrap;
-    }
-
-    th{
-      background:#d81b60;
-      color:#fff;
-      font-weight:bold;
-      text-align:left;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    .header td{
-      background:#f8bbd0;
-      font-weight:bold;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    tr:nth-child(even) td{ background:#fff0f5 }
-    tr{ page-break-inside:avoid }
-
-  </style>
-  </head>
-  <body>
-  ${content}
-  </body>
-  </html>
-  `)
-
-  setTimeout(()=>{ w.print() },500)
-}
-
-    h2{margin:0 0 10px 0}
-
-    .logo{font-size:22px;font-weight:bold;margin-bottom:20px}
-
-    .section{page-break-before:always; margin-top:24px}
-    .section:first-child{page-break-before:auto}
-
-    table{
-      border-collapse:collapse;
-      width:100%;
-      table-layout:fixed;
-      margin-top:10px;
-    }
-
-    th, td{
-      border:1.5px solid #000;
-      padding:8px 10px;
-      font-size:12px;
-      vertical-align:top;
-      word-wrap:break-word;
-      white-space:pre-wrap;
-    }
-
-    th{
-      background:#1e3d8f;
-      color:#fff;
-      font-weight:bold;
-      text-align:left;
-    }
-
-    .header td{
-      background:#e6ecff;
-      font-weight:bold;
-      text-align:left;
-    }
-
-    /* Improve readability */
-    tr:nth-child(even) td{ background:#fafbff }
-
-    /* Prevent row breaking awkwardly */
-    tr{ page-break-inside:avoid }
-
-  </style>
-  </head>
-  <body>
-  ${content}
-  </body>
-  </html>
-  `);
-
-  setTimeout(()=>{
-    w.print();
-  },500);
+setTimeout(function(){ w.print(); },500);
 }
 
 function downloadExcel(){
-  const wb = XLSX.utils.book_new();
 
-  // ---------- 1) Insights ----------
-  const wsInsights = XLSX.utils.json_to_sheet(insightsData || []);
-  autoFit(wsInsights);
-  XLSX.utils.book_append_sheet(wb, wsInsights, "Insights");
+var wb = XLSX.utils.book_new();
 
-  // ---------- 2) Measurements (pivoted by Room) ----------
-  const measPivot = buildMeasurementsPivot();
-  const wsMeas = XLSX.utils.json_to_sheet(measPivot);
-  autoFit(wsMeas);
-  XLSX.utils.book_append_sheet(wb, wsMeas, "Measurements");
+// -------- Insights --------
+var ws1 = XLSX.utils.json_to_sheet(insightsData || []);
+XLSX.utils.book_append_sheet(wb, ws1, "Insights");
 
-  // ---------- 3) Project Details ----------
-  const projArr = [];
-  Object.keys(projectDataRaw || {}).forEach(k=>{
-    if(!["Room","Section","Item","Value"].includes(k)){
-      projArr.push({"Display Name": formatLabel(k), "Value": projectDataRaw[k]});
-    }
-  });
-  const wsProj = XLSX.utils.json_to_sheet(projArr);
-  autoFit(wsProj);
-  XLSX.utils.book_append_sheet(wb, wsProj, "Project Details");
-
-  // ---------- 4) Validation Matrix (pivot + grouping) ----------
-  const matrix = buildMatrixPivot();
-  const wsMatrix = XLSX.utils.json_to_sheet(matrix);
-  autoFit(wsMatrix);
-  XLSX.utils.book_append_sheet(wb, wsMatrix, "Validation Matrix");
-
-  XLSX.writeFile(wb, "Validation_Report.xlsx");
+// -------- Project Details --------
+var projArr = [];
+for(var k in projectDataRaw){
+  if(["Room","Section","Item","Value"].indexOf(k) === -1){
+    projArr.push({"Display Name": formatLabel(k), "Value": projectDataRaw[k]});
+  }
 }
+var ws2 = XLSX.utils.json_to_sheet(projArr);
+XLSX.utils.book_append_sheet(wb, ws2, "Project Details");
 
-// ---------- Helpers ----------
-function buildMatrixPivot(){
-  const rows = matrixDataRaw || [];
-  const rooms = [...new Set(rows.map(r=>r.Room))];
+// -------- Measurements (Pivot) --------
+var measPivot = [];
+if(measData && measData.length){
+  var rooms = getUnique(measData, "Room");
+  var keys = Object.keys(measData[0]);
 
-  function build(section){
-    const subset = rows.filter(r=>r.Section===section);
-    const questions = [...new Set(subset.map(r=>r.Item))];
-    const out = [];
-    questions.forEach(q=>{
-      const obj = { Question: q };
-      rooms.forEach(room=>{
-        const rec = subset.find(r=>r.Room===room && r.Item===q);
-        obj[room] = rec ? [rec.Value, rec.Comments].filter(Boolean).join(" | ") : "";
-      });
-      out.push(obj);
-    });
-    return out;
+  for(var i=0;i<keys.length;i++){
+    if(keys[i] === "Room") continue;
+
+    var obj = { "Measurement": formatLabel(keys[i]) };
+
+    for(var r=0;r<rooms.length;r++){
+      var val = "";
+      for(var m=0;m<measData.length;m++){
+        if(measData[m].Room === rooms[r]){
+          val = measData[m][keys[i]] || "";
+          break;
+        }
+      }
+      obj[rooms[r]] = val;
+    }
+
+    measPivot.push(obj);
+  }
+}
+var ws3 = XLSX.utils.json_to_sheet(measPivot);
+XLSX.utils.book_append_sheet(wb, ws3, "Measurements");
+
+// -------- Validation Matrix (Pivot + Grouping) --------
+var matrix = [];
+var rooms2 = getUnique(matrixDataRaw, "Room");
+
+function buildMatrix(section){
+  var subset = [];
+  for(var i=0;i<matrixDataRaw.length;i++){
+    if(matrixDataRaw[i].Section === section){ subset.push(matrixDataRaw[i]); }
   }
 
-  const finalArr = [];
-  finalArr.push({ Question: "WALL VALIDATION" });
-  finalArr.push(...build("Wall"));
-  finalArr.push({ Question: "ROOM VALIDATION" });
-  finalArr.push(...build("Room"));
-  return finalArr;
-}
+  var questions = getUnique(subset, "Item");
+  var out = [];
 
-function buildMeasurementsPivot(){
-  const rows = measData || [];
-  if(!rows.length) return [];
-  const rooms = [...new Set(rows.map(r=>r.Room))];
-  const keys = Object.keys(rows[0]).filter(k=>k!=="Room");
+  for(var q=0;q<questions.length;q++){
+    var obj = { "Question": questions[q] };
 
-  const out = [];
-  keys.forEach(k=>{
-    const obj = { Measurement: formatLabel(k) };
-    rooms.forEach(room=>{
-      const rec = rows.find(r=>r.Room===room);
-      obj[room] = rec ? (rec[k] ?? "") : "";
-    });
+    for(var r=0;r<rooms2.length;r++){
+      var val = "";
+      for(var x=0;x<subset.length;x++){
+        if(subset[x].Room === rooms2[r] && subset[x].Item === questions[q]){
+          var res = subset[x].Value || "";
+          var com = subset[x].Comments || "";
+          val = res + (com ? " | " + com : "");
+          break;
+        }
+      }
+      obj[rooms2[r]] = val;
+    }
+
     out.push(obj);
-  });
+  }
+
   return out;
 }
 
-function autoFit(ws){
-  if(!ws || !ws['!ref']) return;
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  const colWidths = [];
-  for(let C = range.s.c; C <= range.e.c; C++){
-    let maxLen = 10;
-    for(let R = range.s.r; R <= range.e.r; R++){
-      const cell = ws[XLSX.utils.encode_cell({r:R, c:C})];
-      if(cell && cell.v != null){
-        const len = String(cell.v).length;
-        if(len > maxLen) maxLen = len;
-      }
-    }
-    colWidths.push({ wch: Math.min(maxLen + 2, 60) });
-  }
-  ws['!cols'] = colWidths;
+matrix.push({"Question":"WALL VALIDATION"});
+var wallM = buildMatrix("Wall");
+for(var i1=0;i1<wallM.length;i1++){ matrix.push(wallM[i1]); }
+
+matrix.push({"Question":"ROOM VALIDATION"});
+var roomM = buildMatrix("Room");
+for(var i2=0;i2<roomM.length;i2++){ matrix.push(roomM[i2]); }
+
+var ws4 = XLSX.utils.json_to_sheet(matrix);
+XLSX.utils.book_append_sheet(wb, ws4, "Validation Matrix");
+
+XLSX.writeFile(wb, "Validation_Report.xlsx");
 }
 
-function resetApp(){ location.reload() }
+function resetApp(){ location.reload(); }
 
-document.addEventListener("DOMContentLoaded", bindEvents)
+document.addEventListener("DOMContentLoaded", bindEvents);
 
 </script>
 
