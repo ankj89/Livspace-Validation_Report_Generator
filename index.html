@@ -27,7 +27,6 @@ button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radiu
 
 <script>
 
-<!-- ✅ FIX 2: Global error handler -->
 window.onerror = function(msg, url, line){
 alert("JS Error: " + msg + " at line " + line)
 }
@@ -51,26 +50,35 @@ try{
 let data = new Uint8Array(e.target.result)
 let wb = XLSX.read(data, {type:'array'})
 
-console.log("Sheets:", wb.SheetNames)
-
-/* ✅ FIX 3: SAFE SHEET HANDLING */
-
 let rawSheet = wb.Sheets["Validation Data"] || wb.Sheets[wb.SheetNames[0]]
 let measSheet = wb.Sheets["Measurements"] || wb.Sheets[wb.SheetNames[1]]
-
-if(!rawSheet){
-alert("Validation Data sheet not found")
-return
-}
 
 let raw = XLSX.utils.sheet_to_json(rawSheet)
 let meas = measSheet ? XLSX.utils.sheet_to_json(measSheet) : []
 
-/* ---------------- COMMON ---------------- */
-
 let rooms = [...new Set(raw.map(r=>r.Room))]
 
-/* ---------------- PROJECT (COLUMN FORMAT) ---------------- */
+/* ---------------- PROJECT (DISPLAY LABELS) ---------------- */
+
+const displayMap = {
+pid:"Project ID",
+cx:"Client Name",
+city:"City",
+address:"Address",
+society:"Society Name",
+flat:"Flat No",
+floorNo:"Floor No",
+propertyType:"Property Type",
+serviceLiftUsage:"Service Lift Usage",
+loadingArea:"Loading Area",
+societyDemolish:"Demolition Rules",
+vehicleEntry:"Vehicle Entry",
+waterPoint:"Water Supply",
+electricPoint:"Electric Supply",
+workNOC:"NOC Requirement",
+societyRestrictions:"Restrictions",
+societyWorktimings:"Work Timings"
+}
 
 let ignoreCols = ["Room","Section","Item","Value","Walls","Comments"]
 
@@ -87,18 +95,20 @@ project[k] = r[k]
 let projectSheet = []
 
 Object.keys(project).forEach(k=>{
-projectSheet.push({Parameter:k, Value:project[k]})
+projectSheet.push({
+Parameter: displayMap[k] || k,
+Value: project[k]
+})
 })
 
 /* ---------------- VALIDATION MATRIX ---------------- */
 
 let combinedMatrix = []
 
-let headerRow = {Question:"Question"}
-rooms.forEach(r=>headerRow[r]=r)
-combinedMatrix.push(headerRow)
+let header = {Question:"Question"}
+rooms.forEach(r=>header[r]=r)
+combinedMatrix.push(header)
 
-/* WALL */
 combinedMatrix.push({Question:""})
 combinedMatrix.push({Question:"WALL VALIDATION"})
 
@@ -107,22 +117,13 @@ let wallQuestions = [...new Set(wallRows.map(r=>r.Item))]
 
 wallQuestions.forEach(q=>{
 let row = {Question:q}
-
 rooms.forEach(room=>{
 let rec = wallRows.find(r=>r.Room===room && r.Item===q)
-
-if(rec){
-let parts = [rec.Walls,rec.Value,rec.Comments].filter(x=>x)
-row[room] = parts.join(" | ")
-}else{
-row[room] = ""
-}
+row[room] = rec ? [rec.Walls,rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
 })
-
 combinedMatrix.push(row)
 })
 
-/* ROOM */
 combinedMatrix.push({Question:""})
 combinedMatrix.push({Question:"ROOM VALIDATION"})
 
@@ -131,81 +132,87 @@ let roomQuestions = [...new Set(roomRows.map(r=>r.Item))]
 
 roomQuestions.forEach(q=>{
 let row = {Question:q}
-
 rooms.forEach(room=>{
 let rec = roomRows.find(r=>r.Room===room && r.Item===q)
-
-if(rec){
-let parts = [rec.Value,rec.Comments].filter(x=>x)
-row[room] = parts.join(" | ")
-}else{
-row[room] = ""
-}
+row[room] = rec ? [rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
 })
-
 combinedMatrix.push(row)
 })
 
-/* ---------------- INSIGHTS ---------------- */
+/* ---------------- INSIGHTS (NEW FORMAT) ---------------- */
 
-let insights = rooms.map(r=>({Room:r, Insights:""}))
+let insights = []
 
-/* ---------------- MEASUREMENTS ---------------- */
+for(let i=1;i<=25;i++){
+let row = {SNo:i}
+rooms.forEach(r=>row[r]="")
+insights.push(row)
+}
 
-let measurementSheet = meas
+/* ---------------- MEASUREMENTS (TRANSPOSED) ---------------- */
 
-/* ✅ FIX 4: SAFE EMPTY MEASUREMENTS */
-if(measurementSheet.length === 0){
-measurementSheet = [{}]
+let measurementSheet = []
+
+if(meas.length>0){
+
+let keys = Object.keys(meas[0]).filter(k=>k!=="Room")
+
+keys.forEach(k=>{
+let row = {Measurement:k}
+meas.forEach(r=>{
+row[r.Room] = r[k] || ""
+})
+measurementSheet.push(row)
+})
+
+}else{
+measurementSheet=[{}]
 }
 
 /* ---------------- EXPORT ---------------- */
 
-let newWB = XLSX.utils.book_new()
+let wbNew = XLSX.utils.book_new()
 
 let ws1 = XLSX.utils.json_to_sheet(projectSheet)
 let ws2 = XLSX.utils.json_to_sheet(combinedMatrix)
 let ws3 = XLSX.utils.json_to_sheet(insights)
 let ws4 = XLSX.utils.json_to_sheet(measurementSheet)
 
-/* FORMATTING */
+/* 🔥 FORMATTING */
 
-function setColWidth(ws, count, width=30){
+function setWidth(ws, count, width){
 ws['!cols'] = Array(count).fill({wch:width})
 }
 
-function wrapText(ws){
-Object.keys(ws).forEach(cell=>{
-if(cell[0]==="!") return
-if(!ws[cell].s) ws[cell].s={}
-ws[cell].s.alignment = {wrapText:true, vertical:"top"}
+function wrap(ws){
+Object.keys(ws).forEach(c=>{
+if(c[0]==="!") return
+ws[c].s = {alignment:{wrapText:true,vertical:"top"}}
 })
 }
 
-setColWidth(ws1,2,35)
-setColWidth(ws2,rooms.length+1,35)
-setColWidth(ws3,2,40)
-setColWidth(ws4,Object.keys(measurementSheet[0]||{}).length,25)
+/* Apply */
+setWidth(ws1,2,40)
+setWidth(ws2,rooms.length+1,35)
+setWidth(ws3,rooms.length+1,40)
+setWidth(ws4,rooms.length+1,25)
 
-wrapText(ws2)
-wrapText(ws3)
+wrap(ws2)
+wrap(ws3)
 
-/* ADD SHEETS */
+/* Sheets */
+XLSX.utils.book_append_sheet(wbNew, ws1, "Project & Society")
+XLSX.utils.book_append_sheet(wbNew, ws2, "Validation Matrix")
+XLSX.utils.book_append_sheet(wbNew, ws3, "Insights")
+XLSX.utils.book_append_sheet(wbNew, ws4, "Measurements")
 
-XLSX.utils.book_append_sheet(newWB, ws1, "Project & Society")
-XLSX.utils.book_append_sheet(newWB, ws2, "Validation Matrix")
-XLSX.utils.book_append_sheet(newWB, ws3, "Insights")
-XLSX.utils.book_append_sheet(newWB, ws4, "Measurements")
+XLSX.writeFile(wbNew, "Validation_Report.xlsx")
 
-/* DOWNLOAD */
-
-XLSX.writeFile(newWB, "Validation_Report.xlsx")
-
-alert("✅ Report Generated Successfully")
+alert("✅ Enterprise Report Generated")
 
 }catch(err){
 console.error(err)
-alert("Error processing file. Check console (F12)")
+alert("Error processing file. Check console")
 }
 
 }
@@ -214,7 +221,6 @@ reader.readAsArrayBuffer(file)
 
 }
 
-/* ✅ FIX 5: LOAD CHECK */
 document.addEventListener("DOMContentLoaded", ()=>{
 console.log("App Loaded ✅")
 })
