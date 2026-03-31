@@ -101,8 +101,12 @@ html += `<tr><td>${formatLabel(k)}</td><td>${projectDataRaw[k]}</td></tr>`
 html += `</table></div>`
 
 html += `<div class="section"><h2>Validation Matrix</h2><table>`
+
+// Header with 2 cols per room (Value+Wall, Comments)
 html += `<tr><th>Question</th>`
-rooms.forEach(r=>html+=`<th>${r}</th>`)
+rooms.forEach(r=>{
+  html += `<th>${r} (Result)</th><th>${r} (Comments)</th>`
+})
 html += `</tr>`
 
 let wallRows = raw.filter(r=>r.Section==="Wall")
@@ -111,26 +115,30 @@ let roomRows = raw.filter(r=>r.Section==="Room")
 let wallQuestions = [...new Set(wallRows.map(r=>r.Item))]
 let roomQuestions = [...new Set(roomRows.map(r=>r.Item))]
 
-html += `<tr class="header"><td colspan="${rooms.length+1}">WALL VALIDATION</td></tr>`
+// WALL SECTION
+html += `<tr class="header"><td colspan="${1 + rooms.length*2}">WALL VALIDATION</td></tr>`
 wallQuestions.forEach(q=>{
-html += `<tr><td>${q}</td>`
-rooms.forEach(room=>{
-let rec = wallRows.find(r=>r.Room===room && r.Item===q)
-let val = rec ? [rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
-html += `<td>${val}</td>`
-})
-html += `</tr>`
+  html += `<tr><td>${q}</td>`
+  rooms.forEach(room=>{
+    let rec = wallRows.find(r=>r.Room===room && r.Item===q)
+    let result = rec ? [rec.Walls, rec.Value].filter(Boolean).join(" | ") : ""
+    let comments = rec ? (rec.Comments || "") : ""
+    html += `<td>${result}</td><td>${comments}</td>`
+  })
+  html += `</tr>`
 })
 
-html += `<tr class="header"><td colspan="${rooms.length+1}">ROOM VALIDATION</td></tr>`
+// ROOM SECTION
+html += `<tr class="header"><td colspan="${1 + rooms.length*2}">ROOM VALIDATION</td></tr>`
 roomQuestions.forEach(q=>{
-html += `<tr><td>${q}</td>`
-rooms.forEach(room=>{
-let rec = roomRows.find(r=>r.Room===room && r.Item===q)
-let val = rec ? [rec.Value,rec.Comments].filter(x=>x).join(" | ") : ""
-html += `<td>${val}</td>`
-})
-html += `</tr>`
+  html += `<tr><td>${q}</td>`
+  rooms.forEach(room=>{
+    let rec = roomRows.find(r=>r.Room===room && r.Item===q)
+    let result = rec ? (rec.Value || "") : ""
+    let comments = rec ? (rec.Comments || "") : ""
+    html += `<td>${result}</td><td>${comments}</td>`
+  })
+  html += `</tr>`
 })
 
 html += `</table></div>`
@@ -207,15 +215,141 @@ document.getElementById("saveBtn").classList.remove("hidden")
 }
 
 function downloadPDF(){
-  const content = document.getElementById("reportContainer").outerHTML;
-  const w = window.open();
+  const content = document.getElementById("reportContainer").outerHTML
+  const w = window.open()
 
   w.document.write(`
   <html>
   <head>
   <title>Validation Report</title>
   <style>
-    body{font-family:Arial, Helvetica, sans-serif; padding:24px; color:#111}
+
+    @page {
+      size: A4 landscape;
+      margin: 15mm;
+    }
+
+    body{
+      font-family:Arial, Helvetica, sans-serif;
+      padding:10px;
+      color:#111;
+    }
+
+    .logo{
+      font-size:20px;
+      font-weight:bold;
+      margin-bottom:15px;
+      color:#d81b60;
+    }
+
+    .section{
+      page-break-before:always;
+      margin-top:20px;
+    }
+
+    .section:first-child{
+      page-break-before:auto;
+    }
+
+    table{
+      border-collapse:collapse;
+      width:100%;
+      table-layout:fixed;
+      margin-top:10px;
+      font-size:10px;
+    }
+
+    th, td{
+      border:1.2px solid #000;
+      padding:6px;
+      vertical-align:top;
+      word-wrap:break-word;
+      white-space:pre-wrap;
+    }
+
+    th{
+      background:#d81b60;
+      color:#fff;
+      font-weight:bold;
+      text-align:left;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .header td{
+      background:#f8bbd0;
+      font-weight:bold;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    tr:nth-child(even) td{
+      background:#fff0f5;
+    }
+
+    tr{
+      page-break-inside:avoid;
+    }
+
+    /* Fit wide tables */
+    table {
+      width: 100%;
+    }
+
+  </style>
+  </head>
+  <body>
+  ${content}
+  </body>
+  </html>
+  `)
+
+  setTimeout(()=>{ w.print() },500)
+}
+    .logo{font-size:22px;font-weight:bold;margin-bottom:20px;color:#d81b60}
+    .section{page-break-before:always; margin-top:24px}
+    .section:first-child{page-break-before:auto}
+
+    table{border-collapse:collapse;width:100%;table-layout:fixed;margin-top:10px}
+
+    th, td{
+      border:1.5px solid #000;
+      padding:8px 10px;
+      font-size:12px;
+      vertical-align:top;
+      word-wrap:break-word;
+      white-space:pre-wrap;
+    }
+
+    th{
+      background:#d81b60;
+      color:#fff;
+      font-weight:bold;
+      text-align:left;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .header td{
+      background:#f8bbd0;
+      font-weight:bold;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    tr:nth-child(even) td{ background:#fff0f5 }
+    tr{ page-break-inside:avoid }
+
+  </style>
+  </head>
+  <body>
+  ${content}
+  </body>
+  </html>
+  `)
+
+  setTimeout(()=>{ w.print() },500)
+}
 
     h2{margin:0 0 10px 0}
 
