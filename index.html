@@ -2,429 +2,143 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Site Validation Tool</title>
+<title>Validation Report Generator</title>
 
-<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
-body{font-family:Arial;margin:0;background:#f4f6fb}
-header{background:#1e3d8f;color:white;padding:14px;font-size:18px}
-.container{padding:14px;max-width:1200px;margin:auto}
-.card{background:white;padding:16px;margin-bottom:14px;border-radius:8px;border:1px solid #ddd}
-.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-@media(max-width:900px){.grid{grid-template-columns:1fr}}
-
-label{font-weight:600;font-size:13px}
-input,textarea{width:100%;padding:6px;border-radius:6px;border:1px solid #ccc}
-textarea{height:50px}
-
-button{padding:8px 12px;border:none;background:#1e3d8f;color:white;border-radius:6px;margin:4px;cursor:pointer}
-
-.roomTab{display:inline-block;padding:8px 12px;border:1px solid #ccc;margin:3px;border-radius:6px;cursor:pointer}
-
-.wallBox{display:flex;gap:12px;margin-top:6px}
-
-.accordion{cursor:pointer;background:#eef2ff;padding:10px;border-radius:6px;margin-top:10px}
-.accordionContent{display:none;padding-top:10px}
-
-.questionBlock{padding:8px;border-radius:6px;margin-bottom:8px}
-.statusAnswered{background:#e6f7e6}
-.statusPending{background:#ffe6e6}
-
-.progressBar{height:8px;background:#ddd;border-radius:4px;margin-top:6px}
-.progressFill{height:100%;background:#1e3d8f;border-radius:4px}
-
-.summaryBox{background:#f9fafc;padding:10px;border-radius:6px;margin-bottom:10px}
-
-/* 🔥 TOGGLE */
-.toggleGroup{display:flex;gap:6px;margin-top:6px}
-.toggleBtn{padding:6px 10px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:#fff}
-.toggleBtn.active.yes{background:#28a745;color:#fff}
-.toggleBtn.active.no{background:#dc3545;color:#fff}
-.toggleBtn.active.na{background:#6c757d;color:#fff}
+body{font-family:Arial;background:#f4f6fb;padding:20px}
+.card{background:#fff;padding:20px;border-radius:10px;max-width:600px;margin:auto}
+button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radius:6px;margin-top:10px}
 </style>
 </head>
 
 <body>
 
-<header>Site Validation Tool</header>
-
-<div class="container">
-
 <div class="card">
-<h3>Preliminary Project Details</h3>
-<div style="display:flex;flex-direction:column;gap:12px;">
-<input id="pid" placeholder="PID" onchange="saveData()">
-<input id="cx" placeholder="Cx Name" onchange="saveData()">
-<input id="city" placeholder="City" onchange="saveData()">
-<input id="address" placeholder="Address" onchange="saveData()">
-<input id="society" placeholder="Society Name" onchange="saveData()">
-<input id="flat" placeholder="Flat No" onchange="saveData()">
-<input id="floorNo" placeholder="Floor No" onchange="saveData()">
-</div>
-</div>
-  
-<div class="card">
-<h3>Society Constraints</h3>
-<div id="societyForm" style="display:flex;flex-direction:column;gap:8px;"></div>
-</div>
+<h2>Validation Report Generator</h2>
 
-
-
-
-</div>
-
-<div class="card">
-<div id="roomTabs"></div>
-<button onclick="addRoom()">Add Room</button>
-<button onclick="resetData()">Reset Data</button>
-</div>
-
-<div class="card" id="roomForm"></div>
-
-<div class="card">
-<button onclick="generateExcel()">Generate Excel</button>
-</div>
+<input type="file" id="fileInput" accept=".xlsx" />
+<br>
+<button onclick="processFile()">Generate Report</button>
 
 </div>
 
 <script>
-const societyQuestions = [
-{key:"propertyType", label:"What is the type of property?", options:["Bare Shell","Property Less than 15 yrs","Property More than 15 yrs"]},
-{key:"serviceLiftUsage", label:"Service lift usage allowed?", options:["Yes,Heavy material movement allowed","Yes,Heavy material movement Not allowed","No"]},
-{key:"loadingArea", label:"Debris/material loading area present?", options:["Within 30 ft","More than 30 ft","Not present"]},
-{key:"societyDemolish", label:"What kind of demolition is allowed?", options:["Mechanical","Manual","Mechanical or Manual"]},
-{key:"vehicleEntry", label:"Vehicle entry allowed inside the premises?", options:["Yes,small size","Yes,medium size","Yes,large size","No"]},
-{key:"waterPoint", label:"Is there active water supply point at site location?", options:["Yes","No"]},
-{key:"electricPoint", label:"Is there active power supply at site location?", options:["Yes","No"]},
-{key:"workNOC", label:"Any NOC required to do internal modifications to the property?", options:["Yes","No"]},
-{key:"societyRestrictions", label:"Please mention any other society restrictions", type:"textarea"},
-{key:"societyWorktimings", label:"Please mention permissible work days and timings (e.g. Monday to Saturday, 10 AM to 2 PM, 4 PM to 8 PM)", type:"textarea"}                                                                     
-];
-  
-const walls=["NW","EW","SW","WW"]
 
-const roomQuestions=["Is there a requirement of PCC due to leveling issues/bare shell property?",
-"Existing flooring in Good condition with with proper slope/levels?Capture room diagonal mesurements (in mm) and provide in comments",
-"Is there sufficient height/clearance between floor to ceiling to accommodate false ceiling?Capture Floor to ceiling measurement in 4 corners and center and provide in comments",
-"Are there any issues with the existing false ceiling, such as damage, sagging, or instability, that require removal and replacement?",                   
-"Are there visible undulations/uneven surface on the True Ceiling?Mention treatment required in comments",
-"Are there any utilities (sprinkler pipes, plumbing line, ducts) or cross beams running on the ceiling? Capture the beam bottom to floor mesurement(in mm), Sprinkler head to Floor measurement(in mm) and provide in the comments",
-"Is there any evidence of water leaks or moisture damage on the existing true ceiling?",
-"Can we do tile on tile installation?",                     
-"Are the existing doors and door frame in good condition?",
-"Are the existing windows and window frames in good condition?",
-"Are there any issues with the existing plumbing lines, such as leaks, corrosion, blockages, or inadequate capacity, that require replacement or repair?",
-"Are existing plumbing lines old and outdated and may not be compatible with modern fixtures?",
-"Is the main inlet valve accesible?",
-"Is there sufficent space to provide Shower cubicle?",
-"Is it possible to relocate the WC, without any modifications to external pipeline/drain line?",
-"Do we need to provide damp proof treament on walls? This has to be infomred and done by Cx",
-"Do we need to provide weather proof treatment on walls? This has to be infomred and done by Cx"]
-const wallQuestions=["Is the wall a load-bearing wall/Mivan Construction/Sheer wall?",
-"Is the wall dry wall/Gypsum wall?",
-"Are there major cracks that require structural repair?",
-"Does the existing wall surface have undulations or uneven surface?Capture wall undulation and write in the comments(mm)",
-"Are the undulation more than 6 mm?",
-"Are there minor cracks/loose plaster requiring re plastering??",
-"Is there suitable location for core cut available?",
-"Are existing switch/socket in working condition?Capture Wall wise the Modules and configuration and mention in the comments",
-"Can we re-use the existing module/switch board?",
-"Can split AC be installed post false ceiling w/o pockets? Capture Wall wise Sofit to Ceiling measurement and mention in the comments",
-"Is panelling/pelmet required to be done for AC installation?",
-"Are there any darker shade on the wall?",
-"Is the existing paint in good condition, without excessive peeling, flaking, or bubbling?",
-"Do we need to remove skirting for wardrobe installlation?"]
+function processFile(){
 
-const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
+let file = document.getElementById("fileInput").files[0]
+if(!file){ alert("Upload file first"); return }
 
-let roomOrder=[...defaultRooms]
-let data=JSON.parse(localStorage.getItem("validatorData")||"{}")
+let reader = new FileReader()
 
-function normalizeData(){
-if(!data.rooms)data.rooms={}
-defaultRooms.forEach(r=>{
-if(!data.rooms[r])data.rooms[r]={room:{},wall:{},wallSel:{}}
+reader.onload = function(e){
+
+let data = new Uint8Array(e.target.result)
+let wb = XLSX.read(data, {type:'array'})
+
+let raw = XLSX.utils.sheet_to_json(wb.Sheets["Validation Data"])
+let meas = XLSX.utils.sheet_to_json(wb.Sheets["Measurements"])
+
+/* ---------------- PROJECT TAB ---------------- */
+
+let ignoreCols = ["Room","Section","Item","Value","Walls","Comments"]
+
+let project = {}
+raw.forEach(r=>{
+Object.keys(r).forEach(k=>{
+if(!ignoreCols.includes(k) && !project[k]){
+project[k] = r[k]
+}
 })
-}
-normalizeData()
-
-function saveData(){
-data.project={pid:pid.value,cx:cx.value,city:city.value,address:address.value,society:society.value,flat:flat.value,floorNo:floorNo.value}
-data.constraints={}
-
-societyQuestions.forEach(q=>{
-let el=document.getElementById(q.key)
-if(el) data.constraints[q.key]=el.value
-})
-localStorage.setItem("validatorData",JSON.stringify(data))
-}
-
-function renderTabs(activeRoom){
-
-const container = document.getElementById("roomTabs")
-
-container.innerHTML = roomOrder.map(r=>`
-<span class="roomTab" 
-style="${r===activeRoom ? 'background:#1e3d8f;color:white' : ''}"
-onclick="openRoom('${r}')">
-${r}
-</span>
-`).join("");
-
-}
-
-function scrollToNext(currentDiv){
-let all=document.querySelectorAll(".statusPending")
-for(let el of all){
-if(el.offsetTop>currentDiv.offsetTop){
-el.scrollIntoView({behavior:"smooth",block:"center"})
-break
-}
-}
-}
-
-/* 🔥 TOGGLE FUNCTION */
-function createToggle(value,onChange){
-let div=document.createElement("div")
-div.className="toggleGroup"
-
-let options=["Yes","No","NA"]
-
-options.forEach(opt=>{
-let btn=document.createElement("div")
-btn.className="toggleBtn"
-btn.innerText=opt
-
-btn.onclick=()=>{
-div.querySelectorAll(".toggleBtn").forEach(b=>b.classList.remove("active","yes","no","na"))
-
-btn.classList.add("active")
-btn.classList.add(opt.toLowerCase())
-
-onChange(opt)
-}
-
-if(value===opt){
-btn.classList.add("active")
-btn.classList.add(opt.toLowerCase())
-}
-
-div.appendChild(btn)
 })
 
-return div
+let projectSheet = [project]
+
+/* ---------------- WALL MATRIX ---------------- */
+
+let wallRows = raw.filter(r=>r.Section==="Wall")
+
+let rooms = [...new Set(raw.map(r=>r.Room))]
+let questions = [...new Set(wallRows.map(r=>r.Item))]
+
+let wallMatrix = []
+
+questions.forEach(q=>{
+let row = {Question:q}
+
+rooms.forEach(room=>{
+let rec = wallRows.find(r=>r.Room===room && r.Item===q)
+
+if(rec){
+let val = rec.Value || ""
+let wall = rec.Walls || ""
+let com = rec.Comments || ""
+
+row[room] = `${wall} | ${val} | ${com}`.trim()
+}else{
+row[room] = ""
 }
-
-function applyAllWalls(value, room){
-const r=data.rooms[room]
-wallQuestions.forEach(q=>{r.wall[q]=value})
-saveData()
-openRoom(room)
-}
-
-function openRoom(room){
-
-const r=data.rooms[room]
-renderTabs(room)
-
-const container=document.getElementById("roomForm")
-container.innerHTML=""
-
-function createAccordion(title){
-let acc=document.createElement("div")
-acc.className="accordion"
-acc.textContent=title
-let content=document.createElement("div")
-content.className="accordionContent"
-acc.onclick=()=>{content.style.display=content.style.display==="block"?"none":"block"}
-container.appendChild(acc)
-container.appendChild(content)
-return content
-}
-
-/* WALL */
-let wallSection=createAccordion("Wall Questions")
-
-wallSection.innerHTML+=`
-<button onclick="applyAllWalls('Yes','${room}')">Apply Yes to All</button>
-<button onclick="applyAllWalls('No','${room}')">Apply No to All</button>
-`
-
-wallQuestions.forEach(q=>{
-let div=document.createElement("div")
-div.className="questionBlock "+(r.wall[q]?"statusAnswered":"statusPending")
-
-let label=document.createElement("label")
-label.textContent=q
-
-let toggle=createToggle(r.wall[q], val=>{
-r.wall[q]=val
-saveData()
-div.className="questionBlock "+(val?"statusAnswered":"statusPending")
-scrollToNext(div)
 })
 
-let wallBox=document.createElement("div")
-wallBox.className="wallBox"
-
-walls.forEach(w=>{
-let cb=document.createElement("input")
-cb.type="checkbox"
-let arr=r.wallSel[q]||[]
-cb.checked=arr.includes(w)
-
-cb.onchange=()=>{
-let arr=r.wallSel[q]||[]
-if(cb.checked){if(!arr.includes(w))arr.push(w)}
-else{arr=arr.filter(x=>x!==w)}
-r.wallSel[q]=arr
-saveData()
-}
-wallBox.append(cb,w)
+wallMatrix.push(row)
 })
 
-let textarea=document.createElement("textarea")
-textarea.value=r.wall[q+"-c"]||""
+/* ---------------- ROOM MATRIX ---------------- */
 
-div.append(label,toggle,wallBox,textarea)
-wallSection.appendChild(div)
-})
+let roomRows = raw.filter(r=>r.Section==="Room")
+let roomQuestions = [...new Set(roomRows.map(r=>r.Item))]
 
-/* ROOM */
-let roomSection=createAccordion("Room Questions")
+let roomMatrix = []
 
 roomQuestions.forEach(q=>{
-let div=document.createElement("div")
-div.className="questionBlock "+(r.room[q]?"statusAnswered":"statusPending")
+let row = {Question:q}
 
-let label=document.createElement("label")
-label.textContent=q
+rooms.forEach(room=>{
+let rec = roomRows.find(r=>r.Room===room && r.Item===q)
 
-let toggle=createToggle(r.room[q], val=>{
-r.room[q]=val
-saveData()
-div.className="questionBlock "+(val?"statusAnswered":"statusPending")
-scrollToNext(div)
-})
+if(rec){
+let val = rec.Value || ""
+let com = rec.Comments || ""
 
-let textarea=document.createElement("textarea")
-textarea.value=r.room[q+"-c"]||""
-
-div.append(label,toggle,textarea)
-roomSection.appendChild(div)
-})
-
-/* ✅ NEXT ROOM BUTTON (CORRECT PLACE) */
-let index = roomOrder.indexOf(room)
-
-let nextBtn=document.createElement("button")
-
-if(index === roomOrder.length - 1){
-nextBtn.innerText="Finish ✔"
+row[room] = `${val} | ${com}`.trim()
 }else{
-nextBtn.innerText=`Next: ${roomOrder[index+1]} →`
+row[room] = ""
 }
-
-nextBtn.style.marginTop="10px"
-
-nextBtn.onclick=()=>goToNextRoom(room)
-
-container.appendChild(nextBtn)
-
-}
-
-function generateExcel(){
-saveData()
-let rows=[]
-Object.keys(data.rooms).forEach(room=>{
-let r=data.rooms[room]
-Object.entries(r.wall).forEach(([k,v])=>{
-if(k.endsWith("-c")) return
-rows.push({...data.project,...data.constraints,Room:room,Section:"Wall",Item:k,Value:v,Walls:(r.wallSel[k]||[]).join(","),Comments:r.wall[k+"-c"]||""})
-})
-Object.entries(r.room).forEach(([k,v])=>{
-if(k.endsWith("-c")) return
-rows.push({...data.project,...data.constraints,Room:room,Section:"Room",Item:k,Value:v,Comments:r.room[k+"-c"]||""})
-})
-})
-let wb=XLSX.utils.book_new()
-let ws=XLSX.utils.json_to_sheet(rows)
-XLSX.utils.book_append_sheet(wb,ws,"Validation Data")
-XLSX.writeFile(wb,"site_validation.xlsx")
-}
-
-function addRoom(){
-let name=prompt("Room name")
-if(!name)return
-roomOrder.push(name)
-data.rooms[name]={room:{},wall:{},wallSel:{}}
-renderTabs(name)
-}
-  function goToNextRoom(currentRoom){
-
-let index = roomOrder.indexOf(currentRoom)
-
-if(index === -1) return
-
-// If last room → alert
-if(index === roomOrder.length - 1){
-alert("All rooms completed ✅")
-return
-}
-
-let nextRoom = roomOrder[index + 1]
-
-// Open next room
-openRoom(nextRoom)
-
-// Scroll to top
-window.scrollTo({top:0,behavior:"smooth"})
-}
-function renderSociety(){
-
-const container=document.getElementById("societyForm")
-container.innerHTML=""
-
-societyQuestions.forEach(q=>{
-
-let div=document.createElement("div")
-div.className="formGroup"
-
-let label=document.createElement("label")
-label.className="formLabel"
-label.innerText = q.label
-
-let input
-
-if(q.type==="textarea"){
-input=document.createElement("textarea")
-}else{
-input=document.createElement("select")
-input.innerHTML="<option></option>" + q.options.map(o=>`<option>${o}</option>`).join("")
-}
-
-input.id=q.key
-input.value=(data.constraints && data.constraints[q.key]) || ""
-
-input.onchange=saveData
-
-div.append(label,input)
-container.appendChild(div)
-
 })
 
-}
-function resetData(){
-localStorage.clear()
-location.reload()
+roomMatrix.push(row)
+})
+
+/* ---------------- INSIGHTS ---------------- */
+
+let insights = rooms.map(r=>({
+Room:r,
+Insights:""
+}))
+
+/* ---------------- MEASUREMENTS ---------------- */
+
+let measurements = meas
+
+/* ---------------- EXPORT ---------------- */
+
+let newWB = XLSX.utils.book_new()
+
+XLSX.utils.book_append_sheet(newWB, XLSX.utils.json_to_sheet(projectSheet), "Project & Society")
+XLSX.utils.book_append_sheet(newWB, XLSX.utils.json_to_sheet(wallMatrix), "Wall Matrix")
+XLSX.utils.book_append_sheet(newWB, XLSX.utils.json_to_sheet(roomMatrix), "Room Matrix")
+XLSX.utils.book_append_sheet(newWB, XLSX.utils.json_to_sheet(insights), "Insights")
+XLSX.utils.book_append_sheet(newWB, XLSX.utils.json_to_sheet(measurements), "Measurements")
+
+XLSX.writeFile(newWB, "Validation_Report.xlsx")
+
 }
 
-document.addEventListener("DOMContentLoaded",()=>{
-renderTabs(defaultRooms[0])
-openRoom(defaultRooms[0])
-renderSociety()
-})
+reader.readAsArrayBuffer(file)
+
+}
 
 </script>
 
