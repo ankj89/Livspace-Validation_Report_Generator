@@ -65,7 +65,8 @@ var insightsData = [];
 var measData = [];
 var matrixDataRaw = [];
 var projectDataRaw = {};
-
+var societyData = [];
+  
 function formatLabel(key){
   return key.replace(/([A-Z])/g,' $1').replace(/_/g,' ').replace(/^./,function(c){return c.toUpperCase();});
 }
@@ -317,7 +318,7 @@ for(var k in projectDataRaw){
 var ws2 = XLSX.utils.json_to_sheet(projArr);
 XLSX.utils.book_append_sheet(wb, ws2, "Project Details");
 
-/* -------- ✅ Society Constraints -------- */
+/* -------- Society Constraints -------- */
 if(societyData && societyData.length){
   var wsSoc = XLSX.utils.json_to_sheet(societyData);
   XLSX.utils.book_append_sheet(wb, wsSoc, "Society Constraints");
@@ -406,6 +407,7 @@ XLSX.utils.book_append_sheet(wb, ws4, "Validation Matrix");
 XLSX.writeFile(wb, "Validation_Report.xlsx");
 
 }
+
 
 function buildMatrix(section){
   var subset = [];
