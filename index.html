@@ -387,63 +387,180 @@ document.getElementById("generateBtn").onclick = processFile;
 function getUnique(arr,key){ return [...new Set(arr.map(x=>x[key]))]; }
 
 function processFile(){
+
 let file=document.getElementById("fileInput").files[0];
 if(!file){alert("Upload file first");return;}
 
 let reader=new FileReader();
+
 reader.onload=function(e){
+
 let wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
 
 matrixDataRaw=XLSX.utils.sheet_to_json(wb.Sheets["Validation Data"]||{});
 measData=XLSX.utils.sheet_to_json(wb.Sheets["Measurements"]||{});
 societyData=XLSX.utils.sheet_to_json(wb.Sheets["Society Constraints"]||{});
 
+if(!matrixDataRaw.length){
+alert("Validation Data sheet missing");
+return;
+}
+
+projectDataRaw = matrixDataRaw[0];
+
 let rooms=getUnique(matrixDataRaw,"Room");
 
-let html='<div id="reportContainer"><div class="logo">SITE VALIDATION REPORT</div>';
+let html='<div id="reportContainer">';
+html+='<div class="logo">SITE VALIDATION REPORT</div>';
 
-/* -------- MATRIX WITH WALL NAMES -------- */
+
+// ================= PROJECT DETAILS =================
+html+='<div class="section"><h2>Project Details</h2><table>';
+html+='<tr><th>Field</th><th>Value</th></tr>';
+
+for(let k in projectDataRaw){
+if(!["Room","Section","Item","Value","Walls","Comments"].includes(k)){
+html+=`<tr><td>${k}</td><td>${projectDataRaw[k]}</td></tr>`;
+}
+}
+
+html+='</table></div>';
+
+
+// ================= SOCIETY =================
+if(societyData.length){
+
+html+='<div class="section"><h2>Society Constraints</h2><table>';
+html+='<tr><th>Question</th><th>Value</th></tr>';
+
+let grouped={};
+
+societyData.forEach(x=>{
+let c=x.Category||"General";
+if(!grouped[c]) grouped[c]=[];
+grouped[c].push(x);
+});
+
+for(let cat in grouped){
+
+html+=`<tr class="header"><td colspan="2">${cat}</td></tr>`;
+
+grouped[cat].forEach(i=>{
+html+=`<tr><td>${i.Question}</td><td>${i.Value||""}</td></tr>`;
+});
+
+}
+
+html+='</table></div>';
+}
+
+
+// ================= VALIDATION MATRIX =================
 html+='<div class="section"><h2>Validation Matrix</h2><table>';
 html+='<tr><th>Question</th>';
+
 rooms.forEach(r=>html+=`<th>${r}</th>`);
 html+='</tr>';
 
 let qs=getUnique(matrixDataRaw,"Item");
+
 qs.forEach(q=>{
+
 html+=`<tr><td>${q}</td>`;
+
 rooms.forEach(r=>{
+
 let rec=matrixDataRaw.find(x=>x.Room===r&&x.Item===q)||{};
 let val=rec.Value||"";
+
 if(rec.Walls) val+=` (${rec.Walls})`;
+
 html+=`<td>${val}</td>`;
+
 });
+
 html+='</tr>';
+
 });
+
 html+='</table></div>';
 
-/* -------- INSIGHTS -------- */
+
+// ================= MEASUREMENTS =================
+if(measData.length){
+
+html+='<div class="section"><h2>Measurements</h2><table>';
+
+let keys = Object.keys(measData[0]).filter(k=>k!=="Room");
+
+html+='<tr><th>Parameter</th>';
+rooms.forEach(r=>html+=`<th>${r}</th>`);
+html+='</tr>';
+
+keys.forEach(k=>{
+
+html+=`<tr><td>${k}</td>`;
+
+rooms.forEach(r=>{
+let rec = measData.find(x=>x.Room===r)||{};
+html+=`<td>${rec[k]||""}</td>`;
+});
+
+html+='</tr>';
+
+});
+
+html+='</table></div>';
+}
+
+
+// ================= INSIGHTS =================
 let autoInsights=runRuleEngine(rooms);
+
 let roomInsights={};
 rooms.forEach(r=>roomInsights[r]=[]);
 
 autoInsights.forEach(i=>{
-if(i.room==="All") rooms.forEach(r=>roomInsights[r].push(i.meta));
-else roomInsights[i.room].push(i.meta);
+if(i.room==="All"){
+rooms.forEach(r=>roomInsights[r].push(i.meta));
+}else{
+roomInsights[i.room].push(i.meta);
+}
 });
 
-html+='<div class="section"><h2>Insights</h2>';
+
+html+='<div class="section"><h2>Insights</h2><table>';
+html+='<tr><th>SNo</th>';
+
+rooms.forEach(r=>html+=`<th>${r}</th>`);
+html+='</tr>';
+
+let maxRows = Math.max(...Object.values(roomInsights).map(a=>a.length),10);
+
+for(let i=0;i<maxRows;i++){
+
+html+=`<tr><td>${i+1}</td>`;
+
 rooms.forEach(r=>{
-html+=`<h3>${r}</h3><ul>`;
-roomInsights[r].forEach(i=>{
-html+=`<li><span class="tag ${i.severity.toLowerCase()}">${i.severity}</span>${i.text}</li>`;
+
+let txt = roomInsights[r][i]?.text || "";
+
+html+=`<td contenteditable="true">${txt}</td>`;
+
 });
-for(let i=0;i<10;i++) html+='<li contenteditable="true">&nbsp;</li>';
-html+='</ul>';
-});
-html+='</div></div>';
+
+html+='</tr>';
+}
+
+html+='</table></div>';
+
+
+html+='</div>';
 
 document.getElementById("reportPreview").innerHTML=html;
+
 };
+
 reader.readAsArrayBuffer(file);
 }
 
