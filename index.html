@@ -63,6 +63,23 @@ if(!walls.length) return null;
 return `${walls.join(", ")} are RCC/structural walls. No demolition or chiselling allowed. Electrical/plumbing must be surface or panel-based.`;
 }
 },
+
+/* -------- ROOM DIAGONAL -------- */
+{
+id:"ROOM_DIAGONAL",
+type:"measurement",
+condition:{fields:["diag1","diag2"]},
+output:(vals)=>{
+let nums = vals.map(v=>Number(v)).filter(v=>!isNaN(v) && v!==0);
+if(nums.length<2) return null;
+let diff = Math.abs(nums[0]-nums[1]);
+if(diff>25) return "Room diagonals are out by >25mm, plastering required on walls.";
+if(diff>=10) return "Room diagonals out by 10–25 mm, punning required on walls.";
+return null;
+}
+},
+
+/* -------- CEILING VARIATION -------- */
 {
 id:"CEILING_VARIATION",
 type:"measurement",
@@ -76,6 +93,46 @@ if(diff>=10) return "Ceiling level variation 10–25mm. Punning required.";
 return null;
 }
 },
+
+/* -------- CLEAR HEIGHT -------- */
+{
+id:"CLEAR_HEIGHT",
+type:"measurement",
+condition:{fields:["beamFloor","sprinklerFloor","fc1","fc2","fc3","fc4","fc5"]},
+output:(vals,m)=>{
+let nums = vals.map(v=>Number(v)).filter(v=>!isNaN(v) && v!==0);
+if(!nums.length) return null;
+let minVal = Math.min(...nums);
+let depth = 2750 - minVal;
+let txt = `Clear height available: ${minVal} mm, depth available for false ceiling: ${depth} mm.`;
+if(depth < 150) txt += " False ceiling not recommended.";
+return txt;
+}
+},
+
+/* -------- SOFFIT / AC SPACE -------- */
+{
+id:"SOFFIT_AC",
+type:"measurement",
+condition:{fields:["soffitNW","soffitEW","soffitSW","soffitWW","winSoffitNW","winSoffitEW","winSoffitSW","winSoffitWW"]},
+output:(vals,m)=>{
+let walls = [];
+const map = [
+["NW", m.soffitNW, m.winSoffitNW],
+["EW", m.soffitEW, m.winSoffitEW],
+["SW", m.soffitSW, m.winSoffitSW],
+["WW", m.soffitWW, m.winSoffitWW]
+];
+map.forEach(([w,d1,d2])=>{
+let v1 = Number(d1)||0;
+let v2 = Number(d2)||0;
+if((v1>0 && v1<800) || (v2>0 && v2<800)) walls.push(w);
+});
+if(!walls.length) return null;
+return `Sufficient space for split AC not available on walls ${walls.join(", ")}. False ceiling pocket may be required.`;
+}
+},
+
 {
 id:"WATER",
 type:"society",
