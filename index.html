@@ -280,6 +280,7 @@ return insights;
 function bindEvents(){
 document.getElementById("generateBtn").onclick = processFile;
 document.getElementById("saveBtn").onclick = saveInsights;
+document.getElementById("editBtn").onclick = enableEditing;
 }
 function getUnique(arr,key){ return [...new Set(arr.map(x=>x[key]))]; }
 
@@ -309,14 +310,54 @@ rowData.push(row.cells[j].innerText.trim());
 }
 
 insightsData.push(rowData);
-
 }
+
+/* 🔒 LOCK EDITING */
+document.querySelectorAll("#insightTable td")
+.forEach(td => td.removeAttribute("contenteditable"));
+
+/* UI FLOW */
+document.getElementById("saveBtn").classList.add("hidden");
+document.getElementById("postFinalize").classList.remove("hidden");
 
 alert("Insights saved successfully");
 
-document.getElementById("postFinalize").classList.remove("hidden");
+}
+function enableEditing(){
+
+document.querySelectorAll("#insightTable td")
+.forEach(td => td.setAttribute("contenteditable","true"));
+
+document.getElementById("saveBtn").classList.remove("hidden");
+document.getElementById("postFinalize").classList.add("hidden");
 
 }
+function downloadExcel(){
+
+let ws = XLSX.utils.aoa_to_sheet(insightsData);
+let wb = XLSX.utils.book_new();
+
+XLSX.utils.book_append_sheet(wb, ws, "Insights");
+
+XLSX.writeFile(wb, "Insights.xlsx");
+
+}
+
+document.getElementById("excelBtn").onclick = downloadExcel;
+function downloadPDF(){
+
+let printContent = document.getElementById("reportContainer").innerHTML;
+
+let win = window.open('', '', 'height=700,width=900');
+win.document.write('<html><head><title>Report</title></head><body>');
+win.document.write(printContent);
+win.document.write('</body></html>');
+win.document.close();
+
+win.print();
+}
+
+document.getElementById("pdfBtn").onclick = downloadPDF;  
   
 function processFile(){
 let file=document.getElementById("fileInput").files[0];
@@ -333,7 +374,32 @@ societyData=XLSX.utils.sheet_to_json(wb.Sheets["Society Constraints"]||{});
 let rooms=getUnique(matrixDataRaw,"Room");
 
 let html='<div id="reportContainer"><div class="logo">SITE VALIDATION REPORT</div>';
+/*Project Details*/
+html+='<div class="section"><h2>Project Details</h2><table>';
+html+='<tr><th>Field</th><th>Value</th></tr>';
 
+let projectData = matrixDataRaw[0] || {};
+
+for(let k in projectData){
+if(!["Room","Section","Item","Value","Walls"].includes(k)){
+html+=`<tr><td>${k}</td><td>${projectData[k]}</td></tr>`;
+}
+}
+
+html+='</table></div>';
+
+/* Society */
+  if(societyData.length){
+
+html+='<div class="section"><h2>Society Constraints</h2><table>';
+html+='<tr><th>Question</th><th>Value</th></tr>';
+
+societyData.forEach(s=>{
+html+=`<tr><td>${s.Question}</td><td>${s.Value||""}</td></tr>`;
+});
+
+html+='</table></div>';
+}
 /* MATRIX */
 html+='<div class="section"><h2>Validation Matrix</h2><table><tr><th>Question</th>';
 rooms.forEach(r=>html+=`<th>${r}</th>`);
