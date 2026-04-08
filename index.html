@@ -98,7 +98,7 @@ return {text:`Hairline cracks observed on walls ${walls.join(", ")}. Plaster dam
 {
 id:"DARK_SHADE",
 type:"wall",
-condition:{itemIncludes:"dark shade",valueEquals:"Yes"},
+condition:{itemIncludes:"darker",valueEquals:"Yes"},
 output:(matches)=>{
 let walls = matches.map(m=>m.Walls).filter(Boolean);
 return {text:`Existing ${walls.join(", ")} walls have dark shade. Repainting with lighter shade is not recommended.`,severity:"LOW",category:"FINISHING"};
@@ -113,7 +113,7 @@ output:()=> "Existing ceiling is not in good condition. Demolition is recommende
  {
 id:"WIRING",
 type:"room",
-condition:{itemIncludes:"existing wiring",valueEquals:"No"},
+condition:{itemIncludes:"wiring",valueEquals:"No"},
 output:()=> "Existing wiring not in good condition. Re-wiring is required."
 }, 
 {
@@ -131,7 +131,7 @@ output:()=>({text:"Ceiling seepage / waterproofing issue observed. Suitable wate
 {
 id:"CEILING_UNDULATION",
 type:"room",
-condition:{itemIncludes:"undulations/uneven surface ",valueEquals:"Yes"},
+condition:{itemIncludes:"undulations/uneven surface",valueEquals:"Yes"},
 output:()=>({text:"Undulation 10-20 mm observed in true ceiling. Punning will be required. False ceiling recomended for best finish.",severity:"MEDIUM",category:"FINISHING"})
 },
 {
@@ -144,19 +144,19 @@ output:()=> "Height more than 10 ft, additional scaffolding charges will be adde
 {
 id:"VEHICLE_SMALL",
 type:"society",
-condition:{questionIncludes:"vehicle entry",valueEquals:"Yes,small size"},
+condition:{questionIncludes:"Vehicle entry",valueEquals:"Yes,small size"},
 output:()=> "Only small size vehicle allowed. Additional transportation charges to be added due to increasd number of trips."
 },
 {
 id:"VEHICLE_NONE",
 type:"society",
-condition:{questionIncludes:"vehicle entry",valueEquals:"No"},
+condition:{questionIncludes:"Vehicle entry",valueEquals:"No"},
 output:()=> "No vehicle entry allowed. Additional charges for loading/unloading will be applicable."
 },
 {
 id:"SERVICE_LIFT_NONE",
 type:"society",
-condition:{questionIncludes:"service lift usage",valueEquals:"No"},
+condition:{questionIncludes:"Service lift usage",valueEquals:"No"},
 output:()=> "Lift not available, additional manual lifting charges to be added appropriately."
 },
  {
@@ -169,12 +169,12 @@ output:()=> "Loding unloading area is > 30ft. Additional long lead charges to be
 id:"LOADING_DISTANCE_NO",
 type:"society",
 condition:{questionIncludes:"loading area",valueEquals:"No"},
-output:()=> "Loding unloading area is not present. Additional manula lfiting and long lead charges to be added appropriately."
+output:()=> "Loading unloading area is not present. Additional manual lifting and long lead charges to be added appropriately."
 },  
 {
 id:"SERVICE_LIFT_LIMITED",
 type:"society",
-condition:{questionIncludes:"service lift usage",valueEquals:"Yes,Heavy material movement Not allowed"},
+condition:{questionIncludes:"Service lift usage",valueEquals:"Yes,Heavy material movement Not allowed"},
 output:()=> "Lift available but heavy material movement not allowed. Manual lifting charges to be added appropriately."
 },
 {
@@ -207,7 +207,7 @@ return null;
 id:"UTILITIES",
 type:"room",
 condition:{itemIncludes:"utilities",valueEquals:"Yes"},
-output:()=> "Utilities running above. In case of false ceiling/pelmet/curtain pocket, ply packing may be required."
+output:()=> "Utilities running above impacting clear height. In case of false ceiling/pelmet/curtain pocket, ply packing may be required."
 }, 
 {
 id:"CLEAR_HEIGHT",
