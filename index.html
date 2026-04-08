@@ -51,6 +51,12 @@ var matrixDataRaw = [];
 var projectDataRaw = {};
 var societyData = [];
 
+function norm(str){
+return (str || "")
+.toLowerCase()
+.replace(/[^a-z0-9]/g,"");
+}
+
 /* ---------------- RULE ENGINE CONFIG ---------------- */
 const RULES = [
 {
@@ -180,6 +186,140 @@ type:"society",
 condition:{questionIncludes:"water",valueEquals:"No"},
 output:()=>"No water supply available. Temporary arrangement required."
 },
+
+/* ---------------- STRUCTURAL CRACK ---------------- */
+{
+id:"STRUCTURAL_CRACK",
+type:"wall",
+condition:{itemIncludes:"structural crack",valueEquals:"Yes"},
+output:()=> "Structural crack observed. Need inspection and solution by structural engineer (under Cx scope)."
+},
+
+/* ---------------- LOADING DISTANCE ---------------- */
+{
+id:"LOADING_DISTANCE",
+type:"society",
+condition:{questionIncludes:"loading area",valueEquals:"More than 30 ft"},
+output:()=> "Additional long lead charges to be added."
+},
+
+/* ---------------- HAIRLINE CRACK ---------------- */
+{
+id:"HAIRLINE_CRACK",
+type:"wall",
+condition:{itemIncludes:"hairline crack",valueEquals:"Yes"},
+output:()=> "Plaster damage observed, re-plastering will be required."
+},
+
+/* ---------------- SERVICE LIFT ---------------- */
+{
+id:"SERVICE_LIFT_NONE",
+type:"society",
+condition:{questionIncludes:"service lift usage",valueEquals:"No"},
+output:()=> "Lift not available, additional manual lifting charges to be added."
+},
+{
+id:"SERVICE_LIFT_LIMITED",
+type:"society",
+condition:{questionIncludes:"service lift usage",valueEquals:"Yes,Heavy material movement Not allowed"},
+output:()=> "Lift available but heavy material movement not allowed. Manual lifting charges to be added appropriately."
+},
+
+/* ---------------- VEHICLE SMALL ---------------- */
+{
+id:"VEHICLE_SMALL",
+type:"society",
+condition:{questionIncludes:"vehicle entry",valueEquals:"Yes,small size"},
+output:()=> "Only small size vehicle allowed. Additional transportation charges to be added."
+},
+
+/* ---------------- WATERPROOFING ---------------- */
+{
+id:"WATERPROOFING",
+type:"wall",
+condition:{itemIncludes:"waterproofing",valueEquals:"Yes"},
+output:()=> "Waterproofing issue observed. Damp-proof treatment to be done (under Cx scope)."
+},
+
+/* ---------------- SCAFFOLDING ---------------- */
+{
+id:"SCAFFOLDING",
+type:"society",
+condition:{questionIncludes:"scaffolding",valueEquals:"Yes"},
+output:()=> "Height more than 10 ft, additional scaffolding charges will be added."
+},
+
+/* ---------------- DARK SHADE ---------------- */
+{
+id:"DARK_SHADE",
+type:"wall",
+condition:{itemIncludes:"dark shade",valueEquals:"Yes"},
+output:(matches)=>{
+let walls = matches.map(m=>m.Walls).filter(Boolean);
+return `Existing ${walls.join(", ")} walls have dark shade. Repainting with lighter shade is not recommended.`;
+}
+},
+
+/* ---------------- FALSE CEILING ---------------- */
+{
+id:"FALSE_CEILING",
+type:"room",
+condition:{itemIncludes:"existing false ceiling",valueEquals:"No"},
+output:()=> "Existing ceiling is not in good condition. Demolition is recommended."
+},
+
+/* ---------------- WIRING ---------------- */
+{
+id:"WIRING",
+type:"room",
+condition:{itemIncludes:"electrical wiring",valueEquals:"No"},
+output:()=> "Existing wiring not in good condition. Re-wiring is required."
+},
+
+/* ---------------- UTILITIES ---------------- */
+{
+id:"UTILITIES",
+type:"room",
+condition:{itemIncludes:"utilities",valueEquals:"Yes"},
+output:()=> "Utilities running above. In case of false ceiling/pelmet/curtain pocket, ply packing may be required."
+},
+
+/* ---------------- ADVANCED UNDULATION ---------------- */
+{
+id:"UNDULATION_ADVANCED",
+type:"measurement",
+condition:{fields:["undNW","undEW","undSW","undWW"]},
+output:(vals,m)=>{
+
+let msgs=[];
+
+const map=[
+["NW",m.undNW],
+["EW",m.undEW],
+["SW",m.undSW],
+["WW",m.undWW]
+];
+
+map.forEach(([w,v])=>{
+let val=parseFloat(v);
+if(isNaN(val)) return;
+
+if(val>3 && val<5){
+msgs.push(`${w}: Undulation <5mm. Can be corrected with putty + paint`);
+}
+else if(val>=5 && val<20){
+msgs.push(`${w}: Undulation 5–20mm. Punning required`);
+}
+else if(val>=20){
+msgs.push(`${w}: Undulation >20mm. Plastering required`);
+}
+});
+
+if(!msgs.length) return null;
+
+return msgs.join(" | ");
+}
+},  
 {
 id:"POWER",
 type:"society",
@@ -220,7 +360,7 @@ if(res) insights.push({room:m.Room,text:res});
 
 RULES.filter(r=>r.type==="society").forEach(rule=>{
 societyData.forEach(s=>{
-if((s.Question||"").toLowerCase().includes(rule.condition.questionIncludes) &&
+if((norm(s.Question).includes(norm(rule.condition.questionIncludes))) &&
 (s.Value||"").toLowerCase().trim()===rule.condition.valueEquals.toLowerCase()){
 let res = rule.output(s);
 if(res) insights.push({room:"All",text:res});
@@ -344,7 +484,8 @@ if(!roomInsights[i.room].includes(i.text)) roomInsights[i.room].push(i.text);
 }
 });
 
-let maxRows = Math.max(...Object.values(roomInsights).map(a=>a.length),5);
+let autoCount = Math.max(...Object.values(roomInsights).map(a=>a.length),5);
+let maxRows = autoCount + 10; // extra manual rows
 
 html+='<div class="section"><h2>Insights</h2><table id="insightTable">';
 html+='<tr><th>SNo</th>';
