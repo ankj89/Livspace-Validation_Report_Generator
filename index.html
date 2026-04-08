@@ -119,13 +119,13 @@ output:()=> "Existing wiring not in good condition. Re-wiring is required."
 {
 id:"WALL_SEEPAGE",
 type:"wall",
-condition:{itemIncludes:"water seepage ",valueEquals:"Yes"},
+condition:{itemIncludes:"water seepage",valueEquals:"Yes"},
 output:()=>({text:"Wall seepage / waterproofing issue observed. Damp-proof treatment required (under Cx Scope).",severity:"HIGH",category:"FINISHING"})
 },
 {
 id:"CEILING_SEEPAGE",
 type:"room",
-condition:{itemIncludes:"water leaks or moisture ",valueEquals:"Yes"},
+condition:{itemIncludes:"water leaks or moisture",valueEquals:"Yes"},
 output:()=>({text:"Ceiling seepage / waterproofing issue observed. Suitable waterproofing treatment required (under Cx Scope).",severity:"HIGH",category:"FINISHING"})
 },  
 {
@@ -263,33 +263,123 @@ output:()=>({text:"No power supply. Temporary/DG required.",severity:"HIGH",cate
 ];
 
 function runRuleEngine(rooms){
-let insights=[];
 
-RULES.filter(r=>r.type==="wall").forEach(rule=>{
-rooms.forEach(room=>{
-let matches=matrixDataRaw.filter(x=>x.Room===room&&x.Section==="Wall"&&norm(x.Item).includes(norm(rule.condition.itemIncludes))&&(x.Value||"").toLowerCase().trim()===rule.condition.valueEquals.toLowerCase());
-if(matches.length){let res=rule.output(matches);if(res) insights.push({room,text:res.text,meta:res});}
-});});
+let insights = [];
 
-RULES.filter(r=>r.type==="measurement").forEach(rule=>{
-measData.forEach(m=>{
-if(!m.Room) return;
-let vals=rule.condition.fields.map(f=>m[f]||null);
-let res=rule.output(vals,m);
-if(res) insights.push({room:m.Room,text:res.text,meta:res});
-});});
+/* ---------------- WALL RULES ---------------- */
+RULES.filter(r => r.type === "wall").forEach(rule => {
 
-RULES.filter(r=>r.type==="society").forEach(rule=>{
-societyData.forEach(s=>{
-if(norm(s.Question).includes(norm(rule.condition.questionIncludes))&&(s.Value||"").toLowerCase().trim()===rule.condition.valueEquals.toLowerCase()){
-let res=rule.output(s);
-if(res) insights.push({room:"All",text:res.text,meta:res});
+rooms.forEach(room => {
+
+let matches = matrixDataRaw.filter(x =>
+x.Room === room &&
+x.Section === "Wall" &&
+norm(x.Item).includes(norm(rule.condition.itemIncludes)) &&
+(x.Value || "").toLowerCase().trim() === rule.condition.valueEquals.toLowerCase()
+);
+
+if(matches.length){
+
+let res = rule.output(matches);
+
+/* ✅ NORMALIZE OUTPUT */
+if(res){
+if(typeof res === "string"){
+res = {
+text: res,
+severity: "MEDIUM",
+category: "GENERAL"
+};
 }
-});});
+
+insights.push({
+room: room,
+text: res.text,
+meta: res
+});
+}
+
+}
+
+});
+
+});
+
+
+/* ---------------- MEASUREMENT RULES ---------------- */
+RULES.filter(r => r.type === "measurement").forEach(rule => {
+
+measData.forEach(m => {
+
+if(!m.Room) return;
+
+/* SAFE VALUE EXTRACTION */
+let vals = rule.condition.fields.map(f => {
+let v = m[f];
+return (v === undefined || v === "" || v === null) ? null : v;
+});
+
+let res = rule.output(vals, m);
+
+/* ✅ NORMALIZE OUTPUT */
+if(res){
+if(typeof res === "string"){
+res = {
+text: res,
+severity: "MEDIUM",
+category: "GENERAL"
+};
+}
+
+insights.push({
+room: m.Room,
+text: res.text,
+meta: res
+});
+}
+
+});
+
+});
+
+
+/* ---------------- SOCIETY RULES ---------------- */
+RULES.filter(r => r.type === "society").forEach(rule => {
+
+societyData.forEach(s => {
+
+if(
+norm(s.Question).includes(norm(rule.condition.questionIncludes)) &&
+(s.Value || "").toLowerCase().trim() === rule.condition.valueEquals.toLowerCase()
+){
+
+let res = rule.output(s);
+
+/* ✅ NORMALIZE OUTPUT */
+if(res){
+if(typeof res === "string"){
+res = {
+text: res,
+severity: "MEDIUM",
+category: "GENERAL"
+};
+}
+
+insights.push({
+room: "All",
+text: res.text,
+meta: res
+});
+}
+
+}
+
+});
+
+});
 
 return insights;
 }
-
 function bindEvents(){
 document.getElementById("generateBtn").onclick = processFile;
 }
