@@ -223,8 +223,29 @@ document.querySelectorAll("#insightTable td:not(:first-child)")
 function downloadPDF(){
 var content = document.getElementById("reportContainer").outerHTML;
 var w = window.open();
-w.document.write('<html><body>'+content+'</body></html>');
-setTimeout(()=>w.print(),500);
+
+w.document.write(`
+<html>
+<head>
+<style>
+@page{size:A4 landscape;margin:15mm}
+body{font-family:Arial;padding:10px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #000;padding:6px;font-size:10px}
+th{background:#1e3d8f;color:#fff}
+.header td{background:#eef2ff;font-weight:bold}
+.section{page-break-before:always}
+.section:first-child{page-break-before:auto}
+h2{margin-bottom:10px}
+</style>
+</head>
+<body>
+${content}
+</body>
+</html>
+`);
+
+setTimeout(function(){ w.print(); },500);
 }
 
 function downloadExcel(){
