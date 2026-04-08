@@ -389,14 +389,31 @@ html+=`<tr><td>${k}</td><td>${projectData[k]}</td></tr>`;
 html+='</table></div>';
 
 /* Society */
-  if(societyData.length){
+  /* ================= SOCIETY ================= */
+if(societyData.length){
 
 html+='<div class="section"><h2>Society Constraints</h2><table>';
 html+='<tr><th>Question</th><th>Value</th></tr>';
 
+let grouped = {};
+
+/* 🔹 GROUP BY CATEGORY */
 societyData.forEach(s=>{
-html+=`<tr><td>${s.Question}</td><td>${s.Value||""}</td></tr>`;
+let cat = s.Category || "General";
+if(!grouped[cat]) grouped[cat] = [];
+grouped[cat].push(s);
 });
+
+/* 🔹 RENDER CATEGORY-WISE */
+for(let cat in grouped){
+
+html+=`<tr class="header"><td colspan="2">${cat}</td></tr>`;
+
+grouped[cat].forEach(item=>{
+html+=`<tr><td>${item.Question}</td><td>${item.Value || ""}</td></tr>`;
+});
+
+}
 
 html+='</table></div>';
 }
