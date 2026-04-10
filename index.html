@@ -552,7 +552,7 @@ let cell0 = row.insertCell(0);
 cell0.innerText = rowCount;
 
 /* Other columns */
-for(let i=1;i<4;i++){
+for(let i=1;i<5;i++){
 let cell = row.insertCell(i);
 cell.contentEditable = "true";
 cell.innerText = "";
@@ -712,30 +712,31 @@ let html = `<div class="section">
 <th>Insights</th>
 <th>Type of Insight</th>
 <th>Category</th>
+<th style="width:30%">Remarks</th>
 </tr>`;
 
 let rows = Math.max(dataArr.length, 5);
 
 for(let i=0;i<rows;i++){
 
-html += `<tr>
-<td>${i+1}</td>
 let txt = dataArr[i] || "";
 let meta = classifyInsight(txt);
 
+/* COLOR */
 let rowClass = "";
-
 if(meta.type === "Design Input") rowClass = "type-design";
 else if(meta.type === "Cost Input") rowClass = "type-cost";
-else if(meta.type === "Execution Input") rowClass = "type-execution";
+else rowClass = "type-execution";
 
+/* HTML */
 html += `<tr class="${rowClass}">
 <td>${i+1}</td>
 <td contenteditable="true">${txt}</td>
 <td contenteditable="true">${meta.type}</td>
 <td contenteditable="true">${meta.category}</td>
+<td contenteditable="true" style="min-width:200px"></td>
 </tr>`;
-</tr>`;
+
 }
 
 html += `</table></div>`;
