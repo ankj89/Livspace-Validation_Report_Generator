@@ -48,6 +48,51 @@ var projectDataRaw = {};
 var societyData = [];
 
 function norm(str){return (str||"").toLowerCase().replace(/[^a-z0-9]/g,"");}
+function classifyInsight(text){
+
+let t = (text || "").toLowerCase();
+
+/* TYPE */
+let type = "";
+
+if(t.includes("design") || t.includes("suggested") || t.includes("recommended")){
+type = "Design Input";
+}
+else if(t.includes("charges") || t.includes("cost") || t.includes("additional")){
+type = "Cost Input";
+}
+else{
+type = "Execution Input";
+}
+
+/* CATEGORY */
+let category = "";
+
+if(t.includes("plaster") || t.includes("civil") || t.includes("wall") || t.includes("floor")){
+category = "Civil";
+}
+else if(t.includes("electrical") || t.includes("wiring") || t.includes("switch")){
+category = "Electrical";
+}
+else if(t.includes("plumbing") || t.includes("water") || t.includes("drain")){
+category = "Plumbing";
+}
+else if(t.includes("carpentry") || t.includes("wood") || t.includes("wardrobe")){
+category = "Carpentry";
+}
+else if(t.includes("paint") || t.includes("polish")){
+category = "Paint";
+}
+else if(t.includes("false ceiling") || t.includes("ceiling")){
+category = "False Ceiling";
+}
+else{
+category = "";
+}
+
+return {type, category};
+
+}  
 
 /* ---------------- RULE ENGINE CONFIG ---------------- */
 const RULES = [
@@ -649,7 +694,7 @@ let html = `<div class="section">
 <table id="${tableId}">
 <tr>
 <th>SNo</th>
-<th>Auto Insight</th>
+<th>Insights</th>
 <th>Type of Insight</th>
 <th>Category</th>
 </tr>`;
@@ -660,9 +705,15 @@ for(let i=0;i<rows;i++){
 
 html += `<tr>
 <td>${i+1}</td>
-<td contenteditable="true">${dataArr[i] || ""}</td>
-<td contenteditable="true"></td>
-<td contenteditable="true"></td>
+let txt = dataArr[i] || "";
+let meta = classifyInsight(txt);
+
+html += `<tr>
+<td>${i+1}</td>
+<td contenteditable="true">${txt}</td>
+<td contenteditable="true">${meta.type}</td>
+<td contenteditable="true">${meta.category}</td>
+</tr>`;
 </tr>`;
 }
 
