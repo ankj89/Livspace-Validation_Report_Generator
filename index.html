@@ -18,10 +18,6 @@ th,td{border:1px solid #ccc;padding:8px}
 th{background:#1e3d8f;color:#fff;font-weight:bold}
 .header{background:#eef2ff;font-weight:bold}
 .hidden{display:none}
-.tag{font-size:10px;padding:2px 6px;border-radius:4px;margin-right:6px}
-.high{background:#ffcccc}
-.medium{background:#fff3cd}
-.low{background:#d4edda}
 </style>
 </head>
 
@@ -58,100 +54,61 @@ const RULES = [
 {
 id:"RCC_WALL",
 type:"wall",
-condition:{itemIncludes:"load-bearing",valueEquals:"Yes"},
+condition:{itemIncludes:"load-bearing",valueEquals:"yes"},
 output:(matches)=>{
 let walls = matches.map(m=>m.Walls).filter(Boolean);
-return {text:`RCC walls (${walls.join(", ")}) detected. No demolition or chiselling allowed. Wall panelling required for any electrical works.`,severity:"HIGH",category:"STRUCTURAL"};
+return `RCC walls (${walls.join(", ")}) detected. No demolition or chiselling allowed. Wall panelling required for any electrical works.`;
 }
 },
 {
 id:"STRUCTURAL_CRACK",
 type:"wall",
-condition:{itemIncludes:"structural crack",valueEquals:"Yes"},
+condition:{itemIncludes:"structural crack",valueEquals:"yes"},
 output:(matches)=>{
 let walls = matches.map(m => m.Walls).filter(Boolean);
 if(!walls.length) return null;
-return {text:`Structural crack observed on walls ${walls.join(", ")}. Structural engineer intervention required (Cx scope).`,severity:"HIGH",category:"STRUCTURAL"};
+return `Structural crack observed on walls ${walls.join(", ")}. Structural engineer intervention required.`;
 }
 },
 {
 id:"HAIRLINE_CRACK",
 type:"wall",
-condition:{itemIncludes:"hairline crack",valueEquals:"Yes"},
+condition:{itemIncludes:"hairline crack",valueEquals:"yes"},
 output:(matches)=>{
 let walls = matches.map(m => m.Walls).filter(Boolean);
 if(!walls.length) return null;
-return {text:`Hairline cracks on walls ${walls.join(", ")}. Re-plastering required.`,severity:"HIGH",category:"STRUCTURAL"};
+return `Hairline cracks on walls ${walls.join(", ")}. Re-plastering required.`;
 }
-},
-{
-id:"DARK_SHADE",
-type:"wall",
-condition:{itemIncludes:"darker",valueEquals:"Yes"},
-output:(matches)=>{
-let walls = matches.map(m=>m.Walls).filter(Boolean);
-return {text:`Existing ${walls.join(", ")} walls have dark shade. Lighter repaint not recommended.`,severity:"LOW",category:"FINISHING"};
-}
-},
-{
-id:"FALSE_CEILING",
-type:"room",
-condition:{itemIncludes:"existing false ceiling",valueEquals:"No"},
-output:()=>({text:"Existing ceiling not in good condition. Demolition recommended.",severity:"MEDIUM",category:"FINISHING"})
-},
-{
-id:"WIRING",
-type:"room",
-condition:{itemIncludes:"wiring",valueEquals:"No"},
-output:()=>({text:"Existing wiring not in good condition. Re-wiring required.",severity:"HIGH",category:"EXECUTION"})
 },
 {
 id:"WALL_SEEPAGE",
 type:"wall",
-condition:{itemIncludes:"water seepage",valueEquals:"Yes"},
-output:()=>({text:"Wall seepage observed. Damp-proof treatment required (Cx scope).",severity:"HIGH",category:"FINISHING"})
+condition:{itemIncludes:"water seepage",valueEquals:"yes"},
+output:()=> "Wall seepage observed. Damp-proof treatment required."
 },
 {
-id:"CEILING_SEEPAGE",
+id:"WIRING",
 type:"room",
-condition:{itemIncludes:"water leaks or moisture",valueEquals:"Yes"},
-output:()=>({text:"Ceiling seepage observed. Waterproofing required (Cx scope).",severity:"HIGH",category:"FINISHING"})
-},
-{
-id:"CEILING_UNDULATION",
-type:"room",
-condition:{itemIncludes:"undulations",valueEquals:"Yes"},
-output:()=>({text:"Ceiling undulation present. Punning/false ceiling required.",severity:"MEDIUM",category:"FINISHING"})
+condition:{itemIncludes:"wiring",valueEquals:"no"},
+output:()=> "Existing wiring not in good condition. Re-wiring required."
 },
 {
 id:"SCAFFOLDING",
 type:"society",
-condition:{questionIncludes:"scaffold",valueEquals:"Yes"},
-output:()=>({text:"Height >10 ft. Scaffolding cost applicable.",severity:"HIGH",category:"COST"})
-},
-{
-id:"VEHICLE_SMALL",
-type:"society",
-condition:{questionIncludes:"vehicle",valueEquals:"Yes,small size"},
-output:()=>({text:"Only small vehicles allowed. Additional transport cost.",severity:"MEDIUM",category:"COST"})
+condition:{questionIncludes:"scaffold",valueEquals:"yes"},
+output:()=> "Height >10 ft. Scaffolding cost applicable."
 },
 {
 id:"VEHICLE_NONE",
 type:"society",
-condition:{questionIncludes:"vehicle",valueEquals:"No"},
-output:()=>({text:"No vehicle entry. Manual handling cost applicable.",severity:"HIGH",category:"COST"})
-},
-{
-id:"SERVICE_LIFT_NONE",
-type:"society",
-condition:{questionIncludes:"lift",valueEquals:"No"},
-output:()=>({text:"No service lift. Manual lifting cost.",severity:"HIGH",category:"COST"})
+condition:{questionIncludes:"vehicle",valueEquals:"no"},
+output:()=> "Vehicle entry not allowed. Long lead charges applicable."
 },
 {
 id:"LOADING_DISTANCE_FAR",
 type:"society",
-condition:{questionIncludes:"loading",valueEquals:"More than 30 ft"},
-output:()=>({text:"Loading distance >30 ft. Long lead cost applicable.",severity:"HIGH",category:"COST"})
+condition:{questionIncludes:"loading",valueEquals:"more than 30"},
+output:()=> "Loading distance >30 ft. Long lead charges applicable."
 },
 {
 id:"ROOM_DIAGONAL",
@@ -161,8 +118,8 @@ output:(vals)=>{
 let nums=vals.map(Number).filter(v=>!isNaN(v)&&v!==0);
 if(nums.length<2) return null;
 let diff=Math.abs(nums[0]-nums[1]);
-if(diff>25) return {text:"Room geometry deviation >25mm. Plastering required.",severity:"HIGH",category:"GEOMETRY"};
-if(diff>=10) return {text:"Room geometry deviation 10–25mm. Punning required.",severity:"MEDIUM",category:"GEOMETRY"};
+if(diff>25) return "Room geometry deviation >25mm. Plastering required.";
+if(diff>=10) return "Room geometry deviation 10–25mm. Punning required.";
 return null;
 }
 },
@@ -174,55 +131,22 @@ output:(vals)=>{
 let nums=vals.map(Number).filter(v=>!isNaN(v)&&v!==0);
 if(nums.length<2) return null;
 let diff=Math.max(...nums)-Math.min(...nums);
-if(diff>25) return {text:"Ceiling variation >25mm. False ceiling required.",severity:"HIGH",category:"LEVELS"};
-if(diff>=10) return {text:"Ceiling variation 10–25mm. Punning required.",severity:"MEDIUM",category:"LEVELS"};
+if(diff>25) return "Ceiling variation >25mm. False ceiling required.";
 return null;
 }
 },
 {
-id:"CLEAR_HEIGHT",
-type:"measurement",
-condition:{fields:["beamFloor","sprinklerFloor","fc1","fc2","fc3","fc4","fc5"]},
-output:(vals)=>{
-let nums=vals.map(Number).filter(v=>!isNaN(v)&&v!==0);
-if(!nums.length) return null;
-let minVal=Math.min(...nums);
-let depth=2750 - minVal;
-return {text:`Clear height ${minVal}mm. Ceiling depth ${depth}mm (${depth<150?"Not recommended":"OK"}).`,severity:"HIGH",category:"EXECUTION"};
-}
-},
-  {
 id:"SOFFIT_AC",
 type:"measurement",
 condition:{fields:["soffitNW","soffitEW","soffitSW","soffitWW","winSoffitNW","winSoffitEW","winSoffitSW","winSoffitWW"]},
 output:(vals,m)=>{
-
 let walls=[];
-
-const map=[
-["NW",m.soffitNW,m.winSoffitNW],
-["EW",m.soffitEW,m.winSoffitEW],
-["SW",m.soffitSW,m.winSoffitSW],
-["WW",m.soffitWW,m.winSoffitWW]
-];
-
-map.forEach(([w,d1,d2])=>{
-let v1=parseFloat(d1);
-let v2=parseFloat(d2);
-
-if((!isNaN(v1)&&v1>0&&v1<800) || (!isNaN(v2)&&v2>0&&v2<800)){
-walls.push(w);
-}
+[["NW",m.soffitNW,m.winSoffitNW],["EW",m.soffitEW,m.winSoffitEW],["SW",m.soffitSW,m.winSoffitSW],["WW",m.soffitWW,m.winSoffitWW]]
+.forEach(([w,a,b])=>{
+if((a>0 && a<800)||(b>0 && b<800)) walls.push(w);
 });
-
 if(!walls.length) return null;
-
-return {
-text:`AC space constraint on walls ${walls.join(", ")}. False ceiling pocket may be required.`,
-severity:"MEDIUM",
-category:"EXECUTION"
-};
-
+return `AC space constraint on walls ${walls.join(", ")}. False ceiling pocket required.`;
 }
 }
 ];
@@ -230,49 +154,42 @@ category:"EXECUTION"
 function runRuleEngine(rooms){
 let insights=[];
 
-/* WALL RULES */
-RULES.filter(r=>r.type==="wall").forEach(rule=>{
+RULES.forEach(rule=>{
+
+if(rule.type==="wall"||rule.type==="room"){
 rooms.forEach(room=>{
-let matches=matrixDataRaw.filter(x=>x.Room===room && x.Section==="Wall" && norm(x.Item).includes(norm(rule.condition.itemIncludes)) && norm(x.Value).includes(norm(rule.condition.valueEquals)));
+let matches=matrixDataRaw.filter(x=>
+x.Room===room &&
+norm(x.Item).includes(norm(rule.condition.itemIncludes)) &&
+norm(x.Value||"").includes(norm(rule.condition.valueEquals))
+);
 if(matches.length){
 let res=rule.output(matches);
-if(res) insights.push({room,text:res.text,meta:res});
+if(res) insights.push({room,text:res});
 }
-});});
-
-/* ROOM RULES */
-RULES.filter(r=>r.type==="room").forEach(rule=>{
-rooms.forEach(room=>{
-let matches=matrixDataRaw.filter(x=>x.Room===room && x.Section==="Room" && norm(x.Item).includes(norm(rule.condition.itemIncludes)) && norm(x.Value).includes(norm(rule.condition.valueEquals)));
-if(matches.length){
-let res=rule.output(matches);
-if(res) insights.push({room,text:res.text,meta:res});
+});
 }
-});});
 
-/* MEASUREMENT */
-RULES.filter(r=>r.type==="measurement").forEach(rule=>{
+if(rule.type==="measurement"){
 measData.forEach(m=>{
 if(!m.Room) return;
 let vals=rule.condition.fields.map(f=>m[f]||null);
 let res=rule.output(vals,m);
-if(res) insights.push({room:m.Room,text:res.text,meta:res});
-});});
-
-/* SOCIETY */
-RULES.filter(r=>r.type==="society").forEach(rule=>{
-societyData.forEach(s=>{
-if(
-(
-norm(s.Question).includes(norm(rule.condition.questionIncludes)) ||
-norm(rule.condition.questionIncludes).includes(norm(s.Question))
-) &&
-norm(s.Value || "").includes(norm(rule.condition.valueEquals))
-){
-let res=rule.output(s);
-if(res) insights.push({room:"All",text:res.text,meta:res});
+if(res) insights.push({room:m.Room,text:res});
+});
 }
-});});
+
+if(rule.type==="society"){
+societyData.forEach(s=>{
+if(norm(s.Question).includes(norm(rule.condition.questionIncludes)) &&
+norm(s.Value||"").includes(norm(rule.condition.valueEquals))){
+let res=rule.output(s);
+if(res) insights.push({room:"All",text:res});
+}
+});
+}
+
+});
 
 return insights;
 }
@@ -281,7 +198,10 @@ function bindEvents(){
 document.getElementById("generateBtn").onclick = processFile;
 document.getElementById("saveBtn").onclick = saveInsights;
 document.getElementById("editBtn").onclick = enableEditing;
+document.getElementById("excelBtn").onclick = downloadExcel;
+document.getElementById("pdfBtn").onclick = downloadPDF;
 }
+
 function getUnique(arr,key){ return [...new Set(arr.map(x=>x[key]))]; }
 
 function addInsightRow(){
@@ -294,71 +214,48 @@ if(i===0) cell.innerText=table.rows.length-1;
 else cell.contentEditable="true";
 }
 }
+
 function saveInsights(){
-
 insightsData = [];
-
 let table = document.getElementById("insightTable");
-
 for(let i=1;i<table.rows.length;i++){
-
 let row = table.rows[i];
 let rowData = [];
-
 for(let j=1;j<row.cells.length;j++){
 rowData.push(row.cells[j].innerText.trim());
 }
-
 insightsData.push(rowData);
 }
 
-/* 🔒 LOCK EDITING */
-document.querySelectorAll("#insightTable td")
-.forEach(td => td.removeAttribute("contenteditable"));
+document.querySelectorAll("#insightTable td").forEach(td => td.removeAttribute("contenteditable"));
 
-/* UI FLOW */
 document.getElementById("saveBtn").classList.add("hidden");
 document.getElementById("postFinalize").classList.remove("hidden");
 
 alert("Insights saved successfully");
-
 }
+
 function enableEditing(){
-
-document.querySelectorAll("#insightTable td")
-.forEach(td => td.setAttribute("contenteditable","true"));
-
+document.querySelectorAll("#insightTable td").forEach(td => td.setAttribute("contenteditable","true"));
 document.getElementById("saveBtn").classList.remove("hidden");
 document.getElementById("postFinalize").classList.add("hidden");
-
 }
-function downloadExcel(){
 
+function downloadExcel(){
 let ws = XLSX.utils.aoa_to_sheet(insightsData);
 let wb = XLSX.utils.book_new();
-
 XLSX.utils.book_append_sheet(wb, ws, "Insights");
-
 XLSX.writeFile(wb, "Insights.xlsx");
-
 }
 
-document.getElementById("excelBtn").onclick = downloadExcel;
 function downloadPDF(){
-
 let printContent = document.getElementById("reportContainer").innerHTML;
-
 let win = window.open('', '', 'height=700,width=900');
-win.document.write('<html><head><title>Report</title></head><body>');
-win.document.write(printContent);
-win.document.write('</body></html>');
+win.document.write('<html><body>'+printContent+'</body></html>');
 win.document.close();
-
 win.print();
 }
 
-document.getElementById("pdfBtn").onclick = downloadPDF;  
-  
 function processFile(){
 let file=document.getElementById("fileInput").files[0];
 if(!file){alert("Upload file first");return;}
@@ -374,54 +271,32 @@ societyData=XLSX.utils.sheet_to_json(wb.Sheets["Society Constraints"]||{});
 let rooms=getUnique(matrixDataRaw,"Room");
 
 let html='<div id="reportContainer"><div class="logo">SITE VALIDATION REPORT</div>';
-/*Project Details*/
-html+='<div class="section"><h2>Project Details</h2><table>';
-html+='<tr><th>Field</th><th>Value</th></tr>';
 
+/* PROJECT */
+html+='<div class="section"><h2>Project Details</h2><table><tr><th>Field</th><th>Value</th></tr>';
 let projectData = matrixDataRaw[0] || {};
-
 for(let k in projectData){
 if(!["Room","Section","Item","Value","Walls"].includes(k)){
 html+=`<tr><td>${k}</td><td>${projectData[k]}</td></tr>`;
-}
-}
-
+}}
 html+='</table></div>';
 
-/* Society */
-  /* ================= SOCIETY ================= */
+/* SOCIETY */
 if(societyData.length){
-
-html+='<div class="section"><h2>Society Constraints</h2><table>';
-html+='<tr><th>Question</th><th>Value</th></tr>';
-
-let grouped = {};
-
-/* 🔹 GROUP BY CATEGORY */
-societyData.forEach(s=>{
-let cat = s.Category || "General";
-if(!grouped[cat]) grouped[cat] = [];
-grouped[cat].push(s);
-});
-
-/* 🔹 RENDER CATEGORY-WISE */
+html+='<div class="section"><h2>Society Constraints</h2><table><tr><th>Question</th><th>Value</th></tr>';
+let grouped={};
+societyData.forEach(s=>{let cat=s.Category||"General";if(!grouped[cat]) grouped[cat]=[];grouped[cat].push(s);});
 for(let cat in grouped){
-
 html+=`<tr class="header"><td colspan="2">${cat}</td></tr>`;
-
-grouped[cat].forEach(item=>{
-html+=`<tr><td>${item.Question}</td><td>${item.Value || ""}</td></tr>`;
-});
-
+grouped[cat].forEach(i=>html+=`<tr><td>${i.Question}</td><td>${i.Value||""}</td></tr>`);
 }
-
 html+='</table></div>';
 }
+
 /* MATRIX */
 html+='<div class="section"><h2>Validation Matrix</h2><table><tr><th>Question</th>';
 rooms.forEach(r=>html+=`<th>${r}</th>`);
 html+='</tr>';
-
 let qs=getUnique(matrixDataRaw,"Item");
 qs.forEach(q=>{
 html+=`<tr><td>${q}</td>`;
@@ -437,25 +312,26 @@ html+='</table></div>';
 
 /* INSIGHTS */
 let autoInsights=runRuleEngine(rooms);
-let roomInsights={};
+let roomInsights={}; let societyInsights=[];
 rooms.forEach(r=>roomInsights[r]=[]);
 
 autoInsights.forEach(i=>{
-if(i.room==="All") rooms.forEach(r=>roomInsights[r].push(i.meta));
-else roomInsights[i.room].push(i.meta);
+if(i.room==="All") societyInsights.push(i.text);
+else roomInsights[i.room].push(i.text);
 });
 
 html+='<div class="section"><h2>Insights</h2>';
 html+='<button onclick="addInsightRow()">+ Add Row</button>';
-html+='<table id="insightTable"><tr><th>SNo</th>';
+html+='<table id="insightTable"><tr><th>SNo</th><th>Society</th>';
 rooms.forEach(r=>html+=`<th>${r}</th>`);
 html+='</tr>';
 
-let maxRows=Math.max(...Object.values(roomInsights).map(a=>a.length),5);
+let maxRows=Math.max(societyInsights.length,...Object.values(roomInsights).map(a=>a.length),5);
 for(let i=0;i<maxRows;i++){
 html+=`<tr><td>${i+1}</td>`;
+html+=`<td contenteditable="true">${societyInsights[i]||""}</td>`;
 rooms.forEach(r=>{
-let txt=roomInsights[r][i]?.text||"";
+let txt=roomInsights[r][i]||"";
 html+=`<td contenteditable="true">${txt}</td>`;
 });
 html+='</tr>';
