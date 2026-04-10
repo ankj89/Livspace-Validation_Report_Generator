@@ -491,39 +491,64 @@ document.getElementById("pdfBtn").onclick = downloadPDF;
 
 function getUnique(arr,key){ return [...new Set(arr.map(x=>x[key]))]; }
 
-function addInsightRow(){
-let table=document.getElementById("insightTable");
-let row=table.insertRow();
-let cols=table.rows[0].cells.length;
-for(let i=0;i<cols;i++){
-let cell=row.insertCell();
-if(i===0) cell.innerText=table.rows.length-1;
-else cell.contentEditable="true";
-}
-}
+function addInsightRow(tableId){
 
+let table = document.getElementById(tableId);
+if(!table) return;
+
+let row = table.insertRow();
+let rowCount = table.rows.length - 1;
+
+/* SNo */
+let cell0 = row.insertCell(0);
+cell0.innerText = rowCount;
+
+/* Other columns */
+for(let i=1;i<4;i++){
+let cell = row.insertCell(i);
+cell.contentEditable = "true";
+cell.innerText = "";
+}
+}
 function saveInsights(){
+
 insightsData = [];
-let table = document.getElementById("insightTable");
+
+let tables = document.querySelectorAll("table");
+
+tables.forEach(table=>{
+
+if(!table.id || !table.id.includes("Table")) return;
+
 for(let i=1;i<table.rows.length;i++){
+
 let row = table.rows[i];
 let rowData = [];
+
 for(let j=1;j<row.cells.length;j++){
 rowData.push(row.cells[j].innerText.trim());
 }
+
 insightsData.push(rowData);
+
 }
 
-document.querySelectorAll("#insightTable td").forEach(td => td.removeAttribute("contenteditable"));
+});
+
+/* LOCK */
+document.querySelectorAll("table[id*='Table'] td")
+.forEach(td => td.removeAttribute("contenteditable"));
 
 document.getElementById("saveBtn").classList.add("hidden");
 document.getElementById("postFinalize").classList.remove("hidden");
 
 alert("Insights saved successfully");
 }
-
 function enableEditing(){
-document.querySelectorAll("#insightTable td").forEach(td => td.setAttribute("contenteditable","true"));
+
+document.querySelectorAll("table[id*='Table'] td")
+.forEach(td => td.setAttribute("contenteditable","true"));
+
 document.getElementById("saveBtn").classList.remove("hidden");
 document.getElementById("postFinalize").classList.add("hidden");
 }
@@ -598,33 +623,61 @@ html+='</tr>';
 html+='</table></div>';
 
 /* INSIGHTS */
-let autoInsights=runRuleEngine(rooms);
-let roomInsights={}; let societyInsights=[];
-rooms.forEach(r=>roomInsights[r]=[]);
+/* ================= INSIGHTS ================= */
+
+let autoInsights = runRuleEngine(rooms);
+
+/* SPLIT */
+let roomInsights = {};
+let societyInsights = [];
+
+rooms.forEach(r => roomInsights[r] = []);
 
 autoInsights.forEach(i=>{
-if(i.room==="All") societyInsights.push(i.text);
+if(i.room === "All") societyInsights.push(i.text);
 else roomInsights[i.room].push(i.text);
 });
 
-html+='<div class="section"><h2>Insights</h2>';
-html+='<button onclick="addInsightRow()">+ Add Row</button>';
-html+='<table id="insightTable"><tr><th>SNo</th><th>Society</th>';
-rooms.forEach(r=>html+=`<th>${r}</th>`);
-html+='</tr>';
+/* 🔷 HELPER */
+function createInsightTable(title, dataArr, tableId){
 
-let maxRows=Math.max(societyInsights.length,...Object.values(roomInsights).map(a=>a.length),5);
-for(let i=0;i<maxRows;i++){
-html+=`<tr><td>${i+1}</td>`;
-html+=`<td contenteditable="true">${societyInsights[i]||""}</td>`;
-rooms.forEach(r=>{
-let txt=roomInsights[r][i]||"";
-html+=`<td contenteditable="true">${txt}</td>`;
-});
-html+='</tr>';
+let html = `<div class="section">
+<h2>${title}</h2>
+
+<button onclick="addInsightRow('${tableId}')">+ Add Row</button>
+
+<table id="${tableId}">
+<tr>
+<th>SNo</th>
+<th>Auto Insight</th>
+<th>Type of Insight</th>
+<th>Category</th>
+</tr>`;
+
+let rows = Math.max(dataArr.length, 5);
+
+for(let i=0;i<rows;i++){
+
+html += `<tr>
+<td>${i+1}</td>
+<td contenteditable="true">${dataArr[i] || ""}</td>
+<td contenteditable="true"></td>
+<td contenteditable="true"></td>
+</tr>`;
 }
 
-html+='</table></div></div>';
+html += `</table></div>`;
+
+return html;
+}
+
+/* SOCIETY */
+html += createInsightTable("Society Insights", societyInsights, "societyTable");
+
+/* ROOMS */
+rooms.forEach((room, index)=>{
+html += createInsightTable(`${room} Insights`, roomInsights[room], `roomTable_${index}`);
+});
 
 document.getElementById("reportPreview").innerHTML=html;
 document.getElementById("saveBtn").classList.remove("hidden");
