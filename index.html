@@ -1048,16 +1048,24 @@ margin: 10mm;
 table{
 width:100%;
 border-collapse:collapse;
-table-layout:fixed;
+table-layout:auto;
 word-wrap:break-word;
 }
+th:nth-child(1), td:nth-child(1){width:5%;}
+th:nth-child(2), td:nth-child(2){width:45%;}
+th:nth-child(3), td:nth-child(3){width:15%;}
+th:nth-child(4), td:nth-child(4){width:15%;}
+th:nth-child(5), td:nth-child(5){width:30%;}
 
 th,td{
 border:1px solid #999;
 padding:6px;
 font-size:12px;
 }
-
+td{
+word-break:break-word;
+white-space:normal;
+}
 /* HEADER */
 th{
 background:#1e3d8f;
@@ -1088,26 +1096,8 @@ td:nth-child(5){width:25%;}
 `;
 
 let win = window.open('', '', 'height=700,width=1000');
-document.querySelectorAll("table[id*='Table']").forEach(table=>{
+let win = window.open('', '', 'height=700,width=1000');
 
-let hasData = false;
-
-for(let i=1;i<table.rows.length;i++){
-for(let j=1;j<table.rows[i].cells.length;j++){
-if(table.rows[i].cells[j].innerText.trim()){
-hasData = true;
-break;
-}
-}
-if(hasData) break;
-}
-
-if(!hasData){
-let section = table.closest(".section");
-if(section) section.remove();
-}
-
-});
 win.document.write(`
 <html>
 <head>${styles}</head>
@@ -1117,13 +1107,67 @@ win.document.write(`
 
 win.document.close();
 
-/* WAIT FOR RENDER */
+/* REMOVE EMPTY TABLES FROM PDF DOM */
 setTimeout(()=>{
+
+win.document.querySelectorAll("table[id*='Table']").forEach(table=>{
+
+let hasData = false;
+
+for(let i=1;i<table.rows.length;i++){
+
+let insight = table.rows[i].cells[1].innerText.trim();
+let remarks = table.rows[i].cells[4].innerText.trim();
+
+if(insight || remarks){
+hasData = true;
+break;
+}
+}
+
+if(!hasData){
+let section = table.closest(".section");
+if(section) section.remove();
+}
+
+});
+
 win.print();
+
 },500);
 
 }
+ 
+/* 🔷 HELPER */
+function deleteInsightBlock(tableId){
 
+let table = document.getElementById(tableId);
+if(!table) return;
+
+let hasRealData = false;
+
+for(let i=1;i<table.rows.length;i++){
+
+let insight = table.rows[i].cells[1].innerText.trim();
+let remarks = table.rows[i].cells[4].innerText.trim();
+
+/* ONLY CHECK THESE */
+if(insight || remarks){
+hasRealData = true;
+break;
+}
+}
+
+if(hasRealData){
+alert("Cannot delete section. It contains data.");
+return;
+}
+
+let section = table.closest(".section");
+if(section) section.remove();
+
+}
+ 
 function processFile(){
 let file=document.getElementById("fileInput").files[0];
 if(!file){alert("Upload file first");return;}
@@ -1194,37 +1238,7 @@ if(i.room === "All") societyInsights.push(i.text);
 else roomInsights[i.room].push(i.text);
 });
 
-/* 🔷 HELPER */
-function deleteInsightBlock(tableId){
 
-let table = document.getElementById(tableId);
-if(!table) return;
-
-/* CHECK IF ANY DATA PRESENT */
-let hasData = false;
-
-for(let i=1;i<table.rows.length;i++){
-for(let j=1;j<table.rows[i].cells.length;j++){
-let val = table.rows[i].cells[j].innerText.trim();
-if(val){
-hasData = true;
-break;
-}
-}
-if(hasData) break;
-}
-
-/* BLOCK DELETE IF DATA PRESENT */
-if(hasData){
-alert("Cannot delete section. It contains data.");
-return;
-}
-
-/* REMOVE ENTIRE SECTION */
-let section = table.closest(".section");
-if(section) section.remove();
-
-} 
 function createInsightTable(title, dataArr, tableId){
 
 let html = `<div class="section">
