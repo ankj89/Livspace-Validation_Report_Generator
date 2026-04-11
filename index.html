@@ -38,6 +38,16 @@ th{background:#1e3d8f;color:#fff;font-weight:bold}
 <button id="excelBtn">Download Excel</button>
 <button id="editBtn">Edit Insights</button>
 </div>
+ <!-- ✅ ADD THIS BLOCK HERE -->
+<hr>
+
+<h3>Saved Reports</h3>
+<select id="reportList" style="width:100%; padding:8px;"></select>
+<br><br>
+<button onclick="loadSelectedReport()">Load Report</button>
+<button onclick="createNewReport()">New Report</button>
+<button onclick="deleteReport()">Delete Report</button>
+
 </div>
 
 <div id="reportPreview"></div>
@@ -49,8 +59,103 @@ var measData = [];
 var matrixDataRaw = [];
 var projectDataRaw = {};
 var societyData = [];
-
+let currentReportId = null;
 function norm(str){return (str||"").toLowerCase().replace(/[^a-z0-9]/g,"");}
+function getAllReports(){
+return JSON.parse(localStorage.getItem("validationReports") || "{}");
+}
+
+function saveCurrentReport(){
+
+if(!currentReportId) return;
+
+let allReports = getAllReports();
+
+allReports[currentReportId] = {
+matrixDataRaw,
+measData,
+societyData,
+reportHTML: document.getElementById("reportPreview").innerHTML,
+insightsData,
+timestamp: new Date().toISOString()
+};
+
+localStorage.setItem("validationReports", JSON.stringify(allReports));
+
+populateReportList();
+}
+
+function createNewReport(){
+
+currentReportId = "report_" + Date.now();
+
+alert("New report created");
+
+saveCurrentReport();
+}
+
+function loadReport(reportId){
+
+let allReports = getAllReports();
+let data = allReports[reportId];
+if(!data) return;
+
+currentReportId = reportId;
+
+matrixDataRaw = data.matrixDataRaw || [];
+measData = data.measData || [];
+societyData = data.societyData || [];
+insightsData = data.insightsData || [];
+
+document.getElementById("reportPreview").innerHTML = data.reportHTML || "";
+
+document.getElementById("saveBtn").classList.remove("hidden");
+document.getElementById("postFinalize").classList.remove("hidden");
+
+alert("Report loaded");
+}
+
+function loadSelectedReport(){
+let id = document.getElementById("reportList").value;
+if(!id){ alert("Select report"); return; }
+loadReport(id);
+}
+
+function deleteReport(){
+
+let id = document.getElementById("reportList").value;
+if(!id) return;
+
+if(!confirm("Delete this report?")) return;
+
+let reports = getAllReports();
+delete reports[id];
+
+localStorage.setItem("validationReports", JSON.stringify(reports));
+
+populateReportList();
+
+alert("Report deleted");
+}
+
+function populateReportList(){
+
+let reports = getAllReports();
+let dropdown = document.getElementById("reportList");
+
+if(!dropdown) return;
+
+dropdown.innerHTML = "";
+
+Object.keys(reports).forEach(id=>{
+let opt = document.createElement("option");
+opt.value = id;
+opt.text = `${id} (${new Date(reports[id].timestamp).toLocaleString()})`;
+dropdown.appendChild(opt);
+});
+
+}
+ 
 function classifyInsight(text){
 
 let t = (text || "").toLowerCase();
@@ -791,6 +896,20 @@ document.getElementById("saveBtn").onclick = saveInsights;
 document.getElementById("editBtn").onclick = enableEditing;
 document.getElementById("excelBtn").onclick = downloadExcel;
 document.getElementById("pdfBtn").onclick = downloadPDF;
+document.getElementById("resetBtn").onclick = ()=>{
+if(confirm("This will clear current session. Continue?")){
+
+currentReportId = null;
+
+matrixDataRaw = [];
+measData = [];
+societyData = [];
+insightsData = [];
+
+document.getElementById("reportPreview").innerHTML = "";
+
+}
+}; 
 }
 
 function getUnique(arr,key){ return [...new Set(arr.map(x=>x[key]))]; }
@@ -845,9 +964,11 @@ document.querySelectorAll("table[id*='Table'] td")
 
 document.getElementById("saveBtn").classList.add("hidden");
 document.getElementById("postFinalize").classList.remove("hidden");
-
+saveCurrentReport();
 alert("Insights saved successfully");
 }
+
+ 
 function enableEditing(){
 
 document.querySelectorAll("table[id*='Table'] td")
@@ -855,6 +976,7 @@ document.querySelectorAll("table[id*='Table'] td")
 
 document.getElementById("saveBtn").classList.remove("hidden");
 document.getElementById("postFinalize").classList.add("hidden");
+ saveCurrentReport();
 }
 
 function downloadExcel(){
@@ -1010,11 +1132,27 @@ html += createInsightTable(`${room} Insights`, roomInsights[room], `roomTable_${
 
 document.getElementById("reportPreview").innerHTML=html;
 document.getElementById("saveBtn").classList.remove("hidden");
+if(!currentReportId) currentReportId = "report_" + Date.now();
+saveCurrentReport();
 };
 reader.readAsArrayBuffer(file);
 }
 
-document.addEventListener("DOMContentLoaded",bindEvents);
+document.addEventListener("DOMContentLoaded",()=>{
+bindEvents();
+populateReportList();
+
+/* AUTO RESUME LAST */
+let reports = getAllReports();
+let last = Object.keys(reports).pop();
+
+if(last){
+if(confirm("Resume last report?")){
+loadReport(last);
+}
+}
+
+});
 
 </script>
 
