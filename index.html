@@ -106,6 +106,7 @@ localStorage.setItem("validationReports", JSON.stringify(allReports));
 
 populateReportList();
 }
+ 
 function getUniqueWalls(matches){
 
 let wallSet = new Set();
@@ -119,7 +120,6 @@ x.Walls.split(",").forEach(w=>{
 
 let clean = w.trim().toUpperCase();
 
-/* allow only valid walls */
 if(["NW","EW","SW","WW"].includes(clean)){
 wallSet.add(clean);
 }
@@ -137,16 +137,10 @@ return Array.from(wallSet)
 
 }
 
-/* ORDERED OUTPUT */
-const order = ["NW","EW","SW","WW"];
 
-return Array.from(wallSet)
-.sort((a,b)=>order.indexOf(a)-order.indexOf(b))
-.join(", ");
 
-}
 
-}
+ 
 function createNewReport(){
 
 currentReportId = getReportName();
