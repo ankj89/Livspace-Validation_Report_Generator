@@ -925,18 +925,30 @@ document.getElementById("editBtn").onclick = enableEditing;
 document.getElementById("excelBtn").onclick = downloadExcel;
 document.getElementById("pdfBtn").onclick = downloadPDF;
 document.getElementById("resetBtn").onclick = ()=>{
-if(confirm("This will clear current session. Continue?")){
 
+if(!confirm("Reset current work? Unsaved changes will be lost.")) return;
+
+/* CLEAR DATA */
 currentReportId = null;
-
 matrixDataRaw = [];
 measData = [];
 societyData = [];
 insightsData = [];
 
+/* CLEAR UI */
 document.getElementById("reportPreview").innerHTML = "";
 
-}
+/* RESET FILE INPUT */
+document.getElementById("fileInput").value = "";
+
+/* HIDE BUTTONS */
+document.getElementById("saveBtn").classList.add("hidden");
+document.getElementById("postFinalize").classList.add("hidden");
+
+/* OPTIONAL: clear table editing state */
+document.querySelectorAll("table[id*='Table'] td")
+.forEach(td => td.removeAttribute("contenteditable"));
+
 }; 
 }
 
