@@ -99,113 +99,200 @@ return {type, category};
 
 /* ---------------- RULE ENGINE CONFIG ---------------- */
 const RULES = [
+/* ================= SOCIETY RULES ================= */
+
+/* SERVICE LIFT */
 {
 id:"SERVICE_LIFT",
 type:"society",
-condition:{questionIncludes:"service lift",valueEquals:"not allowed"},
-output:()=> "Service lift is not present or not allowed for heavy material shifting, additional charges for manual lifting applicable"
+condition:{questionIncludes:"service lift"},
+output:(s)=>{
+let val = (s.Value||"").toLowerCase();
+
+if(val.includes("not present") || val.includes("no material movement")){
+return "Service lift is not available for material shifting. Manual lifting charges applicable";
+}
+
+if(val.includes("not allowed")){
+return "Service lift available but heavy material movement not allowed. Manual handling charges applicable";
+}
+
+return null;
+}
 },
+
+/* LOADING DISTANCE (NUMERIC) */
 {
-id:"LOADING_30",
+id:"LOADING_DISTANCE",
 type:"society",
-condition:{questionIncludes:"loading",valueEquals:"more than 30"},
-output:()=> "Loading/unloding area is availlable more than 30ft. Additional charges for long lead applicable"
+condition:{questionIncludes:"distance of loading"},
+output:(s)=>{
+let val = Number(s.Value);
+if(!val) return null;
+
+if(val > 30){
+return `Loading/unloding area is located ${val} ft from site. Additional charges for long lead applicable`;
+}
+
+return null;
+}
 },
-{
-id:"LOADING_NONE",
-type:"society",
-condition:{questionIncludes:"loading",valueEquals:"not present"},
-output:()=> "Loading/unloding area is not available. Additional charges for manual lifting and long lead applicable"
-},
+
+/* DEMOLITION */
 {
 id:"DEMOLITION",
 type:"society",
 condition:{questionIncludes:"demolition",valueEquals:"manual"},
 output:()=> "Only manual demolition allowed. Additional charges for manual work applicable"
 },
+
+/* SCAFFOLDING */
+{
+id:"SCAFFOLDING",
+type:"society",
+condition:{questionIncludes:"scaffolding",valueEquals:"yes"},
+output:()=> "Height more than 10 ft, additional scaffolding charges will be added"
+},
+
+/* OUTSTATION */
 {
 id:"OUTSTATION",
 type:"society",
 condition:{questionIncludes:"outstation",valueEquals:"yes"},
-output:()=> "Site location outside of servicable area. Additional outsation charges applicable"
+output:()=> "Site location in on the outskirts. Additional outstation charges applicable"
 },
+
+/* LIFT HEIGHT */
 {
 id:"LIFT_HEIGHT",
 type:"society",
 condition:{questionIncludes:"height of service lift",valueEquals:"<7"},
-output:()=> "Sufficient height not available in the service lift. Manual lifting charges maybe applicable"
+output:(s)=>`Service lift height is ${s.Value} ft. Sufficient height not available. Manual lifting charges maybe applicable`
 },
+
+/* LIFT DEPTH */
 {
 id:"LIFT_DEPTH",
 type:"society",
 condition:{questionIncludes:"depth of service lift",valueEquals:"<4"},
-output:()=> "Sufficient depth not available in the service lift. Manual lifting charges maybe applicable"
+output:(s)=>`Service lift depth is ${s.Value} ft. Sufficient depth not available. Manual lifting charges maybe applicable`
 },
+
+/* LIFT LENGTH */
 {
 id:"LIFT_LENGTH",
 type:"society",
-condition:{questionIncludes:"length of service lift",valueEquals:"<3"},
-output:()=> "Sufficient lenght not available in the service lift. Manual lifting charges maybe applicable"
+condition:{questionIncludes:"lenght of service lift",valueEquals:"<3"},
+output:(s)=>`Service lift length is ${s.Value} ft. Sufficient length not available. Manual lifting charges maybe applicable`
 },
+
+/* VEHICLE ENTRY */
 {
-id:"VEHICLE_NONE",
+id:"VEHICLE",
 type:"society",
-condition:{questionIncludes:"vehicle",valueEquals:"no"},
-output:()=> "Vehicle entry not allowed. Additional charges for long lead applicable"
+condition:{questionIncludes:"vehicle entry"},
+output:(s)=>{
+let val = (s.Value||"").toLowerCase();
+
+if(val.includes("no")){
+return "Vehicle entry not allowed. Additional charges for loading/unloading and long lead will be applicable.";
+}
+
+if(val.includes("8ft") && !val.includes("14ft")){
+return `Upto ${val} vehicle only allowed. Additional debris trips and transportation charges to be added.`;
+}
+
+return null;
+}
 },
-{
-id:"VEHICLE_SMALL",
-type:"society",
-condition:{questionIncludes:"vehicle",valueEquals:"small"},
-output:()=> "Only small size vehicals allowed. Additional debris trips and transportation charges are applicable"
-},
+
+/* STAIRCASE WIDTH (NUMERIC) */
 {
 id:"STAIR_WIDTH",
 type:"society",
-condition:{questionIncludes:"staircase width",valueEquals:"<4"},
-output:()=> "Staircase available width <4ft. Access is cosntrained so design woodwork/furniture/carpentry products accordingly"
+condition:{questionIncludes:"staircase width"},
+output:(s)=>{
+let val = Number(s.Value);
+if(!val) return null;
+
+if(val < 4){
+return `Staircase available width is ${val} ft. Access is constrained so design woodwork/furniture/carpentry products accordingly`;
+}
+
+return null;
+}
 },
+
+/* WATER */
 {
 id:"NO_WATER",
 type:"society",
 condition:{questionIncludes:"water supply",valueEquals:"no"},
 output:()=> "Active water supply not available. Inform Cx. Suitable charges applicable incase to be done by us"
 },
+
+/* ELECTRICITY */
 {
 id:"NO_POWER",
 type:"society",
 condition:{questionIncludes:"power supply",valueEquals:"no"},
 output:()=> "Active electric supply not available. Inform Cx. Suitable charges applicable incase to be done by us"
 },
+
+/* GAS LINE */
 {
-id:"NO_BACKUP",
+id:"GAS_LINE",
+type:"society",
+condition:{questionIncludes:"gas line",valueEquals:"no"},
+output:()=> "CNG gas line not available. Check cylinder provision"
+},
+
+/* DG BACKUP */
+{
+id:"DG",
 type:"society",
 condition:{questionIncludes:"backup",valueEquals:"no"},
-output:()=> "Backup powwer supply not available. Check with Cx for inverter requirement"
+output:()=> "Backup power supply not available. Check with Cx for inverter requirement"
 },
+
+/* NOC */
 {
 id:"NOC",
 type:"society",
-condition:{questionIncludes:"noc",valueEquals:"yes"},
+condition:{questionIncludes:"permission",valueEquals:"yes"},
 output:()=> "Builder/Society permission required. Inform Cx"
 },
+
+/* POLICE */
+{
+id:"POLICE",
+type:"society",
+condition:{questionIncludes:"police",valueEquals:"yes"},
+output:()=> "Police verification required for labour deployment"
+},
+
+/* WORK TIMINGS */
 {
 id:"WORK_TIME",
 type:"society",
-condition:{questionIncludes:"permissible work"},
-output:(s)=> s.Value ? `Permissible work days and timings : ${s.Value}` : null
+condition:{questionIncludes:"work days"},
+output:(s)=> s.Value ? `Permissible work days and timings: ${s.Value}` : null
 },
+
+/* MATERIAL RESTRICTION */
 {
-id:"MATERIAL_RESTRICTION",
+id:"MATERIAL",
 type:"society",
 condition:{questionIncludes:"material"},
-output:(s)=> s.Value ? `Material/Specification constraints by soicety/builder : ${s.Value}` : null
+output:(s)=> s.Value ? `Material/Specification constraints: ${s.Value}` : null
 },
+
+/* FACIA */
 {
-id:"EXTERNAL_MOD",
+id:"FACIA",
 type:"society",
 condition:{questionIncludes:"external walls",valueEquals:"no"},
-output:()=> "Society/Builder does not allow any mofication on corridor/external walls or facia. Design accordingly"
+output:()=> "Modification not allowed on corridor/external walls/facia. Design accordingly"
 },
 
 {
@@ -516,11 +603,19 @@ if(res) insights.push({room:m.Room,text:res});
 
 if(rule.type==="society"){
 societyData.forEach(s=>{
-if(norm(s.Question).includes(norm(rule.condition.questionIncludes)) &&
-norm(s.Value||"").includes(norm(rule.condition.valueEquals))){
-let res=rule.output(s);
-if(res) insights.push({room:"All",text:res});
+
+/* QUESTION MATCH (MANDATORY) */
+if(!norm(s.Question).includes(norm(rule.condition.questionIncludes))) return;
+
+/* VALUE MATCH (ONLY IF PRESENT) */
+if(rule.condition.valueEquals){
+if(!norm(s.Value||"").includes(norm(rule.condition.valueEquals))) return;
 }
+
+/* RUN RULE */
+let res = rule.output(s);
+if(res) insights.push({room:"All",text:res});
+
 });
 }
 
