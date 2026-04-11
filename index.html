@@ -252,7 +252,7 @@ output:(s)=>{
 let val=(s.Value||"").toLowerCase();
 
 if(val.includes("not present") || val.includes("no material")){
-return "Service lift not available. Manual lifting charges applicable";
+return "Service lift not available or not allowed for material movement. Manual lifting charges applicable";
 }
 
 if(val.includes("not allowed")){
@@ -274,7 +274,7 @@ output:(s)=> s.Value ? `Lift usage restricted to: ${s.Value}` : null
 id:"LOADING_NO",
 type:"society",
 condition:{questionIncludes:"loading/unloading space",valueEquals:"no"},
-output:()=> "Loading/unloading area not available. Manual handling and long lead charges applicable"
+output:()=> "Loading/unloading area not available. Manual loading/unloading and long lead charges applicable."
 },
 
 {
@@ -324,7 +324,7 @@ return null;
 id:"OUTSTATION",
 type:"society",
 condition:{questionIncludes:"outstation",valueEquals:"yes"},
-output:()=> "Site is located inthe outskirts. Outstation charges applicable"
+output:()=> "Site is located in the outskirts. Outstation charges applicable"
 },
 
 {
@@ -333,7 +333,7 @@ type:"society",
 condition:{questionIncludes:"height of service lift",valueEquals:"<7"},
 output:(s)=>{
 let val = s.Value || "";
-return `Service lift height is ${val}. Sufficient height not available. Manual lifting charges maybe applicable`;
+return `Service lift height is ${val} ft. Sufficient height not available. Manual lifting charges maybe applicable`;
 }
 },
 
@@ -343,7 +343,7 @@ type:"society",
 condition:{questionIncludes:"depth of service lift",valueEquals:"<4"},
 output:(s)=>{
 let val = s.Value || "";
-return `Service lift depth is ${val}. Sufficient depth not available. Manual lifting charges maybe applicable`;
+return `Service lift depth is ${val} ft. Sufficient depth not available. Manual lifting charges maybe applicable`;
 }
 },
 
@@ -353,16 +353,10 @@ type:"society",
 condition:{questionIncludes:"length of service lift",valueEquals:"<3"},
 output:(s)=>{
 let val = s.Value || "";
-return `Service lift length is ${val}. Sufficient length not available. Manual lifting charges maybe applicable`;
+return `Service lift length is ${val} ft. Sufficient length not available. Manual lifting charges maybe applicable`;
 }
 },
 
-{
-id:"VEHICLE_NO",
-type:"society",
-condition:{questionIncludes:"vehicle entry",valueEquals:"no"},
-output:()=> "Vehicle entry not allowed. Additional loading/unloading charges applicable"
-},
 
 {
 id:"VEHICLE_CONSTRAINT",
@@ -377,7 +371,7 @@ return "Vehicle entry not allowed. Additional charges for loading/unloading will
 }
 
 if(val.includes("8ft") && !val.includes("14ft")){
-return "Only small size vehicle allowed. Additional transportation charges to be added.";
+return `Only small size ${val} vehicle allowed. Additional debris and transportation charges to be cinsidered.`;
 }
 
 return null;
@@ -452,7 +446,7 @@ output:(s)=> s.Value ? `Permissible work timings: ${s.Value}` : null
 id:"MATERIAL",
 type:"society",
 condition:{questionIncludes:"material"},
-output:(s)=> s.Value ? `Material restrictions: ${s.Value}` : null
+output:(s)=> s.Value ? `Material/specification restrictions by society/builder: ${s.Value}` : null
 },
 
 /* ================= ROOM ================= */
@@ -550,13 +544,73 @@ output:()=> "Existing grills require repair/repainting. Additional paint and rep
 id:"FLOOR_LEVEL_EXTENSION",
 type:"room",
 condition:{itemIncludes:"level the floors",valueEquals:"yes"},
-output:()=> "Floor level difference observed in extension area. Levelling screed/PCC required"
+output:()=> "Floor level difference observed with adjecent area. In case of room extension, levelling screed/PCC required"
 },  
   {
 id:"TILE_ON_TILE_YES",
 type:"room",
 condition:{itemIncludes:"tile on tile",valueEquals:"yes"},
 output:()=> "Tile-on-tile installation feasible. Modifications to existing doors/wwodwork to be considered in costing."
+},
+ {
+id:"REPAINT_FEASIBLE",
+type:"room",
+condition:{itemIncludes:"paint"},  // trigger once per room
+output:(matches)=>{
+
+let room = matches[0].Room;
+
+/* ---------------- FETCH ROOM DATA ---------------- */
+let wallsData = matrixDataRaw.filter(x => x.Room === room);
+let meas = measData.find(m => m.Room === room) || {};
+
+/* ---------------- CONDITIONS ---------------- */
+
+/* 1. UNDULATION CHECK */
+let undVals = [meas.undNW, meas.undEW, meas.undSW, meas.undWW]
+.map(Number).filter(x=>x>0);
+
+let undulationOK = undVals.length ? undVals.every(v => v <= 3) : true;
+
+/* 2. PUNNING / PLASTER CHECK */
+let hasPunning = wallsData.some(x =>
+norm(x.Item).includes("undulation") &&
+(Number(x.Value) > 5)
+);
+
+/* 3. DARK SHADE */
+let hasDark = wallsData.some(x =>
+norm(x.Item).includes("dark") &&
+norm(x.Value).includes("yes")
+);
+
+/* 4. WATERPROOFING */
+let hasSeepage = wallsData.some(x =>
+norm(x.Item).includes("seepage") &&
+norm(x.Value).includes("yes")
+);
+
+/* 5. SKIRTING */
+let skirting = wallsData.some(x =>
+norm(x.Item).includes("skirting") &&
+norm(x.Value).includes("no")
+);
+
+/* ---------------- FINAL DECISION ---------------- */
+
+if(
+undulationOK &&
+!hasPunning &&
+!hasDark &&
+!hasSeepage &&
+!skirting
+){
+return "Re-painting can be considered. In case of any electrical works, fresh painting recommended";
+}
+
+return null;
+
+}
 },
 {
 id:"CEILING_SEEPAGE",
@@ -611,14 +665,14 @@ output:(m)=>`Hairline cracks/loose plaster observed on walls (${m.map(x=>x.Walls
 id:"SEEPAGE",
 type:"wall",
 condition:{itemIncludes:"seepage",valueEquals:"yes"},
-output:(m)=>`Seepage observed on walls (${m.map(x=>x.Walls).join(", ")}). Waterproofing/Damproofing required before strat of works(under Cx scope)`
+output:(m)=>`Seepage observed on walls (${m.map(x=>x.Walls).join(", ")}). Waterproofing/Damproofing required before start of works(under Cx scope)`
 },
 
 {
 id:"AC_POINT",
 type:"wall",
 condition:{itemIncludes:"ac point",valueEquals:"no"},
-output:()=> "AC point not available. Lowside works required"
+output:()=> "AC point not available. Lowside works required to be done. Discuss with Cx"
 },
 {
 id:"AC_PELMET",
@@ -636,7 +690,7 @@ output:(m)=>`Switches/sockets not in working condition on walls (${m.map(x=>x.Wa
 id:"SKIRTING_NOT_FLUSH",
 type:"room",
 condition:{itemIncludes:"skirting flushed",valueEquals:"no"},
-output:()=> "Skirting demolition required to accommodate wardrobe or paneling work"
+output:()=> "Skirting demolition required to accommodate wardrobe or panelling work"
 },
 {
 id:"DOOR_CONDITION_BAD",
@@ -660,7 +714,7 @@ output:()=> "Sufficient space not available to install additional window tracks.
 id:"DARK_SHADE",
 type:"wall",
 condition:{itemIncludes:"darker shade",valueEquals:"yes"},
-output:(m)=>`Dark shade on walls (${m.map(x=>x.Walls).join(", ")}). Repainting not recommended with lighter shade.Fresh paintto be considered`
+output:(m)=>`Dark shade on walls (${m.map(x=>x.Walls).join(", ")}). Repainting not recommended with lighter shade.Fresh paint to be considered`
 },
   
 
