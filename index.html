@@ -10,8 +10,15 @@
 body{font-family:Arial;background:#f4f6fb;padding:20px}
 .card{background:#fff;padding:20px;border-radius:10px;max-width:650px;margin:auto}
 button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radius:6px;margin-top:10px;cursor:pointer;margin-right:8px}
-.section{margin-top:30px;page-break-before:always}
-.section:first-child{page-break-before:auto}
+.section{
+break-before: page;
+page-break-before: always;
+}
+
+.section:first-child{
+break-before: auto;
+page-break-before: auto;
+}
 .logo{font-size:22px;font-weight:bold;margin-bottom:20px}
 table{
 width:100%;
@@ -32,7 +39,20 @@ th{
 background:#d9d9d9;
 color:#000;
 font-weight:bold;
+font-family: "Segoe UI", Arial;
+letter-spacing:0.5px;
 }
+h1{
+font-family: "Segoe UI", Arial;
+font-size:18px;
+letter-spacing:1px;
+}
+
+h2{
+font-family: "Segoe UI", Arial;
+font-size:14px;
+margin-bottom:5px;
+} 
 
 /* COLUMN CONTROL */
 td:nth-child(1){width:5%;}
@@ -1158,6 +1178,22 @@ let content = document.getElementById("reportContainer").innerHTML;
 /* PRINT STYLES */
 let styles = `
 <style>
+header{
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+height: 50px;
+border-bottom: 2px solid #000;
+font-family: Arial;
+font-size: 12px;
+padding: 5px 10px;
+background: white;
+}
+
+body{
+margin-top: 60px;
+}
 body{
 font-family:Arial;
 counter-reset: page;
@@ -1170,14 +1206,11 @@ margin:12mm;
 }
 
 /* FOOTER PAGE NUMBER */
-@media print{
-body::after{
-content: "Page " counter(page);
+footer{
 position: fixed;
-bottom: 5px;
-right: 20px;
+bottom: 0;
+right: 10px;
 font-size: 10px;
-}
 }
 
 /* TABLE */
@@ -1291,7 +1324,10 @@ let rooms=getUnique(matrixDataRaw,"Room");
 let html = `
 <div id="reportContainer">
 
-<div style="border-bottom:2px solid #000; margin-bottom:10px; padding-bottom:10px;">
+<header>
+<b>SITE VALIDATION REPORT</b><br>
+Generated On: ${new Date().toLocaleString()}
+</header>
 <h1 style="margin:0;">SITE VALIDATION REPORT</h1>
 <div style="font-size:12px;">
 <b>Generated On:</b> ${new Date().toLocaleString()}
@@ -1318,13 +1354,16 @@ html += `
 
 <tr><td>Validator Name</td><td contenteditable="true">Enter input here</td></tr>
 <tr><td>Validator Email</td><td contenteditable="true">Enter input here</td></tr>
-<tr><td>ID Name</td><td contenteditable="true"></td>Enter input here</tr>
-<tr><td>ID Email</td><td contenteditable="true"></td>Enter input here</tr>
-<tr><td>BMD Name</td><td contenteditable="true"></td>Enter input here</tr>
-<tr><td>BMD Email</td><td contenteditable="true"></td>Enter input here</tr>
-<tr><td>Start Time</td><td>${startTime}</td></tr>
+
+<tr><td>ID Name</td><td contenteditable="true">Enter input here</td></tr>
+<tr><td>ID Email</td><td contenteditable="true">Enter input here</td></tr>
+
+<tr><td>BMD Name</td><td contenteditable="true">Enter input here</td></tr>
+<tr><td>BMD Email</td><td contenteditable="true">Enter input here</td></tr>
+
+<tr><td>Start Time</td><td contenteditable="true">Enter input here</td></tr>
 <tr><td>End Time</td><td>${endTime}</td></tr>
-<tr><td>Total Time</td><td>${duration}</td></tr>
+<tr><td>Total Time</td><td>${duration || "Auto after input"}</td></tr>
 
 </table>
 </div>
@@ -1364,7 +1403,7 @@ html+=`<tr><td>${q}</td>`;
 rooms.forEach(r=>{
 let rec=matrixDataRaw.find(x=>x.Room===r&&x.Item===q)||{};
 let val=rec.Value||"";
-html+=`<td>${val}</td>`;
+html+=`<td>${val}<br><span style="font-size:10px;color:#555">Enter comment here</span></td>`;
 });
 html+='</tr>';
 });
@@ -1384,7 +1423,7 @@ rooms.forEach(r=>{
 let rec=matrixDataRaw.find(x=>x.Room===r&&x.Item===q)||{};
 let val=rec.Value||"";
 if(rec.Walls) val+=` (${rec.Walls})`;
-html+=`<td>${val}</td>`;
+html+=`<td>${val}<br><span style="font-size:10px;color:#555">Enter comment here</span></td>`;
 });
 html+='</tr>';
 });
@@ -1483,6 +1522,6 @@ loadReport(last);
 });
 
 </script>
-
+<footer>Page</footer>
 </body>
 </html>
