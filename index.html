@@ -1158,8 +1158,29 @@ let content = document.getElementById("reportContainer").innerHTML;
 /* PRINT STYLES */
 let styles = `
 <style>
-body{font-family:Arial;}
+body{
+font-family:Arial;
+counter-reset: page;
+}
 
+/* PAGE */
+@page{
+size:A4 landscape;
+margin:12mm;
+}
+
+/* FOOTER PAGE NUMBER */
+@media print{
+body::after{
+content: "Page " counter(page);
+position: fixed;
+bottom: 5px;
+right: 20px;
+font-size: 10px;
+}
+}
+
+/* TABLE */
 table{
 width:100%;
 border-collapse:collapse;
@@ -1176,11 +1197,6 @@ word-break:break-word;
 th{
 background:#d9d9d9;
 color:#000;
-}
-
-@page{
-size:A4 landscape;
-margin:10mm;
 }
 </style>
 `;
@@ -1272,7 +1288,16 @@ societyData=XLSX.utils.sheet_to_json(wb.Sheets["Society Constraints"]||{});
 
 let rooms=getUnique(matrixDataRaw,"Room");
 
-let html='<div id="reportContainer"><div class="logo">SITE VALIDATION REPORT</div>';
+let html = `
+<div id="reportContainer">
+
+<div style="border-bottom:2px solid #000; margin-bottom:10px; padding-bottom:10px;">
+<h1 style="margin:0;">SITE VALIDATION REPORT</h1>
+<div style="font-size:12px;">
+<b>Generated On:</b> ${new Date().toLocaleString()}
+</div>
+</div>
+`;
 
  /*VALIDATION HEADER */
 let startTime = localStorage.getItem("validationStartTime") || "";
@@ -1291,11 +1316,12 @@ html += `
 <table>
 <tr><th>Field</th><th>Value</th></tr>
 
-<tr><td>Validator Name</td><td contenteditable="true"></td></tr>
-<tr><td>Validator Email</td><td contenteditable="true"></td></tr>
-<tr><td>BMD Name</td><td contenteditable="true"></td></tr>
-<tr><td>BMD Email</td><td contenteditable="true"></td></tr>
-
+<tr><td>Validator Name</td><td contenteditable="true">Enter input here</td></tr>
+<tr><td>Validator Email</td><td contenteditable="true">Enter input here</td></tr>
+<tr><td>ID Name</td><td contenteditable="true"></td>Enter input here</tr>
+<tr><td>ID Email</td><td contenteditable="true"></td>Enter input here</tr>
+<tr><td>BMD Name</td><td contenteditable="true"></td>Enter input here</tr>
+<tr><td>BMD Email</td><td contenteditable="true"></td>Enter input here</tr>
 <tr><td>Start Time</td><td>${startTime}</td></tr>
 <tr><td>End Time</td><td>${endTime}</td></tr>
 <tr><td>Total Time</td><td>${duration}</td></tr>
@@ -1325,17 +1351,40 @@ html+='</table></div>';
 }
 
 /* MATRIX */
-html+='<div class="section"><h2>Validation Matrix</h2><table><tr><th>Question</th>';
+/* -------- ROOM MATRIX -------- */
+html+='<div class="section"><h2>Room Validation Matrix</h2><table><tr><th>Question</th>';
 rooms.forEach(r=>html+=`<th>${r}</th>`);
 html+='</tr>';
-let qs=getUnique(matrixDataRaw,"Item");
-qs.forEach(q=>{
+
+let roomQs = matrixDataRaw.filter(x=>x.Section==="Room");
+let uniqueRoomQs = [...new Set(roomQs.map(x=>x.Item))];
+
+uniqueRoomQs.forEach(q=>{
+html+=`<tr><td>${q}</td>`;
+rooms.forEach(r=>{
+let rec=matrixDataRaw.find(x=>x.Room===r&&x.Item===q)||{};
+let val=rec.Value||"";
+html+=`<td>${val}</td>`;
+});
+html+='</tr>';
+});
+html+='</table></div>';
+
+/* -------- WALL MATRIX -------- */
+html+='<div class="section"><h2>Wall Validation Matrix</h2><table><tr><th>Question</th>';
+rooms.forEach(r=>html+=`<th>${r}</th>`);
+html+='</tr>';
+
+let wallQs = matrixDataRaw.filter(x=>x.Section==="Wall");
+let uniqueWallQs = [...new Set(wallQs.map(x=>x.Item))];
+
+uniqueWallQs.forEach(q=>{
 html+=`<tr><td>${q}</td>`;
 rooms.forEach(r=>{
 let rec=matrixDataRaw.find(x=>x.Room===r&&x.Item===q)||{};
 let val=rec.Value||"";
 if(rec.Walls) val+=` (${rec.Walls})`;
-html+=`<td style="white-space:normal;">${val}</td>`;
+html+=`<td>${val}</td>`;
 });
 html+='</tr>';
 });
