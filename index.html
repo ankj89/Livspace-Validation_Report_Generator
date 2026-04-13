@@ -1341,7 +1341,7 @@ Generated On: ${new Date().toLocaleString()}
  /*VALIDATION HEADER */
 let startTime = "";
 let endTime = "";
-
+let duration = "";
 /* 🔥 GET FROM MEASUREMENT SHEET */
 if(measData.length){
     startTime = measData[0].Validation_Start || "";
@@ -1349,19 +1349,13 @@ if(measData.length){
 }
 
 /* DURATION */
-let duration = "";
+
 if(startTime && endTime){
     let diff = new Date(endTime) - new Date(startTime);
     let mins = Math.floor(diff / 60000);
     duration = mins + " mins";
 }
 
-let duration = "";
-if(startTime){
-    let diff = new Date(endTime) - new Date(startTime);
-    let mins = Math.floor(diff / 60000);
-    duration = mins + " mins";
-}
 
 html += `
 <div class="section">
