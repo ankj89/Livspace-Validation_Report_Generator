@@ -13,14 +13,36 @@ button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radiu
 .section{margin-top:30px;page-break-before:always}
 .section:first-child{page-break-before:auto}
 .logo{font-size:22px;font-weight:bold;margin-bottom:20px}
-table{border-collapse:collapse;width:100%}
-th,td{border:1px solid #ccc;padding:8px}
-th{background:#1e3d8f;color:#fff;font-weight:bold}
+table{
+width:100%;
+border-collapse:collapse;
+table-layout:fixed;
+font-family:Arial;
+}
+
+th, td{
+border:1px solid #000;
+padding:6px;
+font-size:12px;
+vertical-align:top;
+word-wrap:break-word;
+}
+
+th{
+background:#d9d9d9;
+color:#000;
+font-weight:bold;
+}
+
+/* COLUMN CONTROL */
+td:nth-child(1){width:5%;}
+td:nth-child(2){width:45%;}
+td:nth-child(3){width:15%;}
+td:nth-child(4){width:15%;}
+td:nth-child(5){width:20%;}
 .header{background:#eef2ff;font-weight:bold}
 .hidden{display:none}
-.type-design{background:#e7f3ff;}
-.type-cost{background:#fff3cd;}
-.type-execution{background:#fdecea;}
+
 </style>
 </head>
 
@@ -1136,65 +1158,30 @@ let content = document.getElementById("reportContainer").innerHTML;
 /* PRINT STYLES */
 let styles = `
 <style>
-body{
-font-family:Arial;
-padding:20px;
-}
+body{font-family:Arial;}
 
-/* PAGE */
-@page {
-size: A4 landscape;
-margin: 10mm;
-}
-
-/* TABLE */
 table{
 width:100%;
 border-collapse:collapse;
-table-layout:auto;
-word-wrap:break-word;
+table-layout:fixed;
 }
-th:nth-child(1), td:nth-child(1){width:5%;}
-th:nth-child(2), td:nth-child(2){width:45%;}
-th:nth-child(3), td:nth-child(3){width:15%;}
-th:nth-child(4), td:nth-child(4){width:15%;}
-th:nth-child(5), td:nth-child(5){width:30%;}
 
 th,td{
-border:1px solid #999;
+border:1px solid #000;
 padding:6px;
-font-size:12px;
-}
-td{
+font-size:11px;
 word-break:break-word;
-white-space:normal;
 }
-/* HEADER */
+
 th{
-background:#1e3d8f;
-color:#fff;
+background:#d9d9d9;
+color:#000;
 }
 
-/* SECTION */
-.section{
-page-break-before:always;
+@page{
+size:A4 landscape;
+margin:10mm;
 }
-.section:first-child{
-page-break-before:auto;
-}
-
-/* COLUMN WIDTH FIX */
-td:nth-child(1){width:5%;}
-td:nth-child(2){width:40%;}
-td:nth-child(3){width:15%;}
-td:nth-child(4){width:15%;}
-td:nth-child(5){width:25%;}
-
-/* COLORS */
-.type-design{background:#e7f3ff;}
-.type-cost{background:#fff3cd;}
-.type-execution{background:#fdecea;}
-
 </style>
 `;
 
@@ -1287,6 +1274,35 @@ let rooms=getUnique(matrixDataRaw,"Room");
 
 let html='<div id="reportContainer"><div class="logo">SITE VALIDATION REPORT</div>';
 
+ /*VALIDATION HEADER */
+let startTime = localStorage.getItem("validationStartTime") || "";
+let endTime = new Date().toLocaleString();
+
+let duration = "";
+if(startTime){
+    let diff = new Date(endTime) - new Date(startTime);
+    let mins = Math.floor(diff / 60000);
+    duration = mins + " mins";
+}
+
+html += `
+<div class="section">
+<h2>Validation Summary</h2>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+
+<tr><td>Validator Name</td><td contenteditable="true"></td></tr>
+<tr><td>Validator Email</td><td contenteditable="true"></td></tr>
+<tr><td>BMD Name</td><td contenteditable="true"></td></tr>
+<tr><td>BMD Email</td><td contenteditable="true"></td></tr>
+
+<tr><td>Start Time</td><td>${startTime}</td></tr>
+<tr><td>End Time</td><td>${endTime}</td></tr>
+<tr><td>Total Time</td><td>${duration}</td></tr>
+
+</table>
+</div>
+`;
 /* PROJECT */
 html+='<div class="section"><h2>Project Details</h2><table><tr><th>Field</th><th>Value</th></tr>';
 let projectData = matrixDataRaw[0] || {};
@@ -1319,7 +1335,7 @@ rooms.forEach(r=>{
 let rec=matrixDataRaw.find(x=>x.Room===r&&x.Item===q)||{};
 let val=rec.Value||"";
 if(rec.Walls) val+=` (${rec.Walls})`;
-html+=`<td>${val}</td>`;
+html+=`<td style="white-space:normal;">${val}</td>`;
 });
 html+='</tr>';
 });
@@ -1366,14 +1382,9 @@ for(let i=0;i<rows;i++){
 let txt = dataArr[i] || "";
 let meta = classifyInsight(txt);
 
-/* COLOR */
-let rowClass = "";
-if(meta.type === "Design Input") rowClass = "type-design";
-else if(meta.type === "Cost Input") rowClass = "type-cost";
-else rowClass = "type-execution";
 
 /* HTML */
-html += `<tr class="${rowClass}">
+html += `<tr>
 <td>${i+1}</td>
 <td contenteditable="true">${txt}</td>
 <td contenteditable="true">${meta.type}</td>
