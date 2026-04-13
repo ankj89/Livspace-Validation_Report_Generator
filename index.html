@@ -1176,7 +1176,7 @@ XLSX.writeFile(wb, "Insights.xlsx");
 
 function downloadPDF(){
 
-let content = document.getElementById("reportContainer").innerHTML;
+let content = document.getElementById("reportPreview").innerHTML;
 
 /* PRINT STYLES */
 let styles = `
@@ -1184,6 +1184,8 @@ let styles = `
 header{
 position: fixed;
 top: 0;
+width:100%;
+z-index:1000;
 left: 0;
 right: 0;
 height: 50px;
@@ -1233,6 +1235,14 @@ word-break:break-word;
 th{
 background:#d9d9d9;
 color:#000;
+}
+.section{
+page-break-before: always;
+break-before: page;
+}
+
+.section:first-child{
+page-break-before: auto;
 }
 </style>
 `;
@@ -1372,7 +1382,7 @@ html += `
 <tr><td>BMD Name</td><td contenteditable="true">Enter input here</td></tr>
 <tr><td>BMD Email</td><td contenteditable="true">Enter input here</td></tr>
 
-<tr><td>Start Time</td><td contenteditable="true">Enter input here</td></tr>
+<tr><td>Start Time</td><td>${startTime || ""}</td></tr>
 <tr><td>End Time</td><td>${endTime}</td></tr>
 <tr><td>Total Time</td><td>${duration || "Auto after input"}</td></tr>
 
