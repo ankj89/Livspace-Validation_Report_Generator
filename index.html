@@ -335,8 +335,10 @@ type:"society",
 condition:{questionIncludes:"service lift"},
 output:(s)=>{
 let val=(s.Value||"").toLowerCase();
-
+/* 🔥 FLOOR CONDITION */
+if(!allowManualLifting()) return null;
 if(val.includes("not present") || val.includes("no material")){
+ 
 return "Service lift not available or not allowed for material movement. Manual lifting charges applicable";
 }
 
@@ -370,7 +372,7 @@ output:(s)=>{
 let val=Number(s.Value);
 if(!val) return null;
 if(val>30){
-return `Loading/unloading area is located ${val} ft from site. Additional long lead charges applicable`;
+return `Loading/unloading area is located ${val} ft (more than 30 ft) from site. Additional long lead charges applicable`;
 }
 return null;
 }
@@ -418,6 +420,8 @@ type:"society",
 condition:{questionIncludes:"height of service lift",valueEquals:"<7"},
 output:(s)=>{
 let val = s.Value || "";
+/* 🔥 FLOOR CONDITION */
+if(!allowManualLifting()) return null; 
 return `Service lift height is ${val} ft. Sufficient height not available. Manual lifting charges maybe applicable`;
 }
 },
@@ -428,6 +432,8 @@ type:"society",
 condition:{questionIncludes:"depth of service lift",valueEquals:"<4"},
 output:(s)=>{
 let val = s.Value || "";
+ /* 🔥 FLOOR CONDITION */
+if(!allowManualLifting()) return null;
 return `Service lift depth is ${val} ft. Sufficient depth not available. Manual lifting charges maybe applicable`;
 }
 },
@@ -437,7 +443,10 @@ id:"LIFT_LENGTH",
 type:"society",
 condition:{questionIncludes:"length of service lift",valueEquals:"<3"},
 output:(s)=>{
+ 
 let val = s.Value || "";
+ /* 🔥 FLOOR CONDITION */
+if(!allowManualLifting()) return null;
 return `Service lift length is ${val} ft. Sufficient length not available. Manual lifting charges maybe applicable`;
 }
 },
@@ -456,7 +465,7 @@ return "Vehicle entry not allowed. Additional charges for loading/unloading will
 }
 
 if(val.includes("8ft") && !val.includes("14ft")){
-return `Only small size ${val} vehicle allowed. Additional debris and transportation charges to be cinsidered.`;
+return `Only small size ${val} vehicle allowed. Additional debris and transportation charges to be considered.`;
 }
 
 return null;
@@ -471,7 +480,7 @@ condition:{questionIncludes:"staircase width"},
 output:(s)=>{
 let val=Number(s.Value);
 if(!val) return null;
-if(val<4){
+if(val<3){
 return `Staircase width is ${val} ft. Access constrained for movement`;
 }
 return null;
@@ -482,21 +491,21 @@ return null;
 id:"NO_WATER",
 type:"society",
 condition:{questionIncludes:"water supply",valueEquals:"no"},
-output:()=> "No active water supply available at site.Inform Cx."
+output:()=> "No active water supply available at site.Inform Cx for arrangment. Additional charges applicable incase done by Livspace"
 },
 
 {
 id:"NO_POWER",
 type:"society",
 condition:{questionIncludes:"power supply",valueEquals:"no"},
-output:()=> "No active power supply available at site.Inform Cx. "
+output:()=> "No active power supply available at site.Inform Cx for arrangment. Additional charges applicable incase done by Livspace"
 },
 
 {
 id:"GAS_LINE",
 type:"society",
 condition:{questionIncludes:"gas line",valueEquals:"no"},
-output:()=> "CNG gas line not provided till site location."
+output:()=> "LPG gas line not provided till site location."
 },
 
 {
@@ -533,6 +542,7 @@ type:"society",
 condition:{questionIncludes:"material"},
 output:(s)=> s.Value ? `Material/specification restrictions by society/builder: ${s.Value}` : null
 },
+
 
 /* ================= ROOM ================= */
 
@@ -605,7 +615,7 @@ output:()=> "Insufficient space for swing shutters in wardrobe/storages. Sliding
 id:"FLOOR_PROTECTION",
 type:"room",
 condition:{itemIncludes:"floor protection",valueEquals:"yes"},
-output:()=> "Floor protection required during execution. Additional cost to be considered"
+output:()=> "Floor protection required during execution. Additional cost to be considered."
 },
 {
 id:"DEEP_CLEANING",
@@ -818,7 +828,7 @@ if(!a||!b) return null;
 let diff=Math.abs(a-b);
 
 if(diff>20) return "Room walls are not orthogonal/in level. Room diagonal deviation > 20 mm. Plastering or wall panelling will be required";
-if(diff>=10) return "Room walls are not orthogonal/in level.Room diagonals deviation 10–25mm. Punning required";
+if(diff>=5) return "Room walls are not orthogonal/in level.Room diagonals deviation 5–20 mm. Punning required";
 
 return null;
 }
@@ -866,38 +876,50 @@ msgs.push(`Floor to ceiling clear height: ${fcMin} mm`);
 if(beam>0){
 msgs.push(`Offset beam present. Clear height at beam: ${beam} mm`);
 }
-
+if(beam-2490<0){
+msgs.push(`Offset beam cannot be concelaed in flat false ceiling as clear height will become <8ft. Periperal False Ceiling suggested or keep beam exposed/boxed`};
 /* SPRINKLER / UTILITIES */
 if(sprinkler>0){
 msgs.push(`Utilities/sprinkler/HVAC line present. Clear height: ${sprinkler} mm`);
 }
-
+if(sprinkler-2490<0){
+msgs.push(`Utilities cannot be concelaed in flat false ceiling as clear height will become <8ft. Periperal False Ceiling suggested`};
+/* SPRINKLER / UTILITIES */
 /* ---------------- EFFECTIVE HEIGHT ---------------- */
 
 /* take minimum of all valid */
 let validHeights = [fcMin, beam, sprinkler].filter(x=>x>0);
-let effective = Math.min(...validHeights);
-
+ let permHeights = [beam, sprinkler].filter(x=>x>0);
+let effective = Math.max(...validHeights);
+let permicible = Math.max(...permHeights);
 /* ---------------- FALSE CEILING CALC ---------------- */
 
 /* target clear height = 8 ft = 2440 mm */
-let target = 2440;
+let target = 2490;
 
 /* max drop allowed */
 let maxDrop = effective - target;
+ 
+let minDrop = effective - pemicible;
 
+if(maxDrop < 75){
+msg.push( `Available depth only ${maxDrop} mm. False ceiling not recommended`);
+}
 /* minimum drop (practical service gap) */
-let minDrop = 75;  // can adjust to 75–100
+if(permicible>2490){
+ msg.push( `Recommended false ceiling drop: ${minDrop} mm to ${maxDrop} mm`);
+};  // can adjust to 75–100
+if(permicible<2490){
+msg.push( `Recommended false ceiling drop: 75 mm to ${maxDrop} mm`);
+}; 
 
-let dropMsg = `Recommended false ceiling drop: ${minDrop} mm to ${maxDrop} mm`;
 
 /* ---------------- VALIDATIONS ---------------- */
 
 if(maxDrop < 75){
-dropMsg = `Available depth only ${maxDrop} mm. False ceiling not recommended`;
+msg.push( `Available depth only ${maxDrop} mm. False ceiling not recommended`);
 }
 
-msgs.push(dropMsg);
 
 /* ---------------- AC POCKET LOGIC ---------------- */
 
@@ -1051,15 +1073,21 @@ if(res) insights.push({room:m.Room,text:res});
 
 if(rule.type==="society"){
 societyData.forEach(s=>{
-
+if(!s.Value || s.Value.trim() === "") return;
 /* QUESTION MATCH (MANDATORY) */
 if(!norm(s.Question).includes(norm(rule.condition.questionIncludes))) return;
 
 /* VALUE MATCH (ONLY IF PRESENT) */
 if(rule.condition.valueEquals){
-if(!norm(s.Value||"").includes(norm(rule.condition.valueEquals))) return;
-}
 
+let actual = (s.Value || "").trim();
+let expected = rule.condition.valueEquals.trim();
+
+/* EXACT MATCH ONLY */
+if(actual !== expected){
+    return;
+}
+}
 /* RUN RULE */
 let res = rule.output(s);
 if(res) insights.push({room:"All",text:res});
@@ -1362,7 +1390,24 @@ let section = table.closest(".section");
 if(section) section.remove();
 
 }
+function getFloorNumber(){
 
+    let project = matrixDataRaw[0] || {};
+
+    let floorRaw = project["Floor"] || project["Floor No"] || project["Floor Number"] || "";
+
+    let num = parseInt(floorRaw);
+
+    return isNaN(num) ? null : num;
+}
+function allowManualLifting(){
+
+    let floor = getFloorNumber();
+
+    if(floor === null) return true; // fallback (don’t block)
+
+    return floor >= 4;  // 🔥 ONLY allow if 4 or above
+} 
 function parseCustomDate(str){
 
 if(!str) return null;
@@ -1432,14 +1477,14 @@ html += `
 <div style="width:50%">
 <h2>VALIDATION SUMMARY</h2>
 
-<p><b>Validator Name:</b> <span contenteditable="true">Manual input required</span></p>
-<p><b>Validator Email:</b> <span contenteditable="true">Manual input required</span></p>
+<p><b>Validator Name:</b> <span contenteditable="true" class="editable-placeholder">Manual input required</span></p>
+<p><b>Validator Email:</b> <span contenteditable="true" class="editable-placeholder">Manual input required</span></p>
 
-<p><b>ID Name:</b> <span contenteditable="true">Manual input required</span></p>
-<p><b>ID Email:</b> <span contenteditable="true">Manual input required</span></p>
+<p><b>ID Name:</b> <span contenteditable="true" class="editable-placeholder">Manual input required</span></p>
+<p><b>ID Email:</b> <span contenteditable="true" class="editable-placeholder">Manual input required</span></p>
 
-<p><b>BMD Name:</b> <span contenteditable="true">Manual input required</span></p>
-<p><b>BMD Email:</b> <span contenteditable="true">Manual input required</span></p>
+<p><b>BMD Name:</b> <span contenteditable="true" class="editable-placeholder">Manual input required</span></p>
+<p><b>BMD Email:</b> <span contenteditable="true" class="editable-placeholder">Manual input required</span></p>
 
 <p><b>Start Time:</b> ${startTime || ""}</p>
 <p><b>End Time:</b> ${endTime || ""}</p>
@@ -1454,7 +1499,13 @@ html += `
 let projectData = matrixDataRaw[0] || {};
 for(let k in projectData){
 if(!["Room","Section","Item","Value","Walls"].includes(k)){
-html += `<p><b>${k}:</b> ${projectData[k]}</p>`;
+let val = projectData[k] || "Manual input required";
+
+html += `<p><b>${k}:</b> 
+<span contenteditable="true" class="${projectData[k] ? "" : "editable-placeholder"}">
+${val}
+</span>
+</p>`;
 }
 }
 
