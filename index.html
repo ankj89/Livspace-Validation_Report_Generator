@@ -9,11 +9,7 @@
 <style>
 body{font-family:Arial;background:#f4f6fb;padding:20px}
 .card{background:#fff;padding:20px;border-radius:10px;max-width:650px;margin:auto}
- .card{
-position:sticky;
-top:0;
-z-index:1000;
-}
+
 
 button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radius:6px;margin-top:10px;cursor:pointer;margin-right:8px}
 .section{
@@ -93,12 +89,7 @@ padding:10px 0;
 } 
 /* 🔥 UX IMPROVEMENTS */
 
-/* 1. STICKY TOP CONTROL PANEL */
-.card{
-position:sticky;
-top:0;
-z-index:1000;
-}
+
 
 /* 2. HIGHLIGHT EDITABLE CELLS */
 td[contenteditable="true"]{
@@ -106,19 +97,7 @@ background:#fffbe6;
 }
 
 /* 3. FREEZE TABLE HEADER */
-thead th{
-position:sticky;
-top:0;
-background:#d9d9d9;
-z-index:2;
-}
 
-/* 4. BETTER SCROLL VISIBILITY */
-table{
-overflow:auto;
-display:block;
-max-height:400px;
-}
  
 </style>
 </head>
@@ -1277,9 +1256,63 @@ XLSX.writeFile(wb, "Insights.xlsx");
 
 function downloadPDF(){
 
-let content = document.getElementById("reportPreview").innerHTML;
+// 🔥 CLONE CLEAN COPY (DO NOT USE RAW HTML)
+let clone = document.getElementById("reportPreview").cloneNode(true)
 
-/* PRINT STYLES */
+// ---------------- CLEAN UI ----------------
+
+// ❌ REMOVE ALL BUTTONS
+clone.querySelectorAll("button").forEach(b => b.remove())
+
+// ❌ REMOVE DELETE ICONS (❌)
+clone.querySelectorAll("span[onclick*='deleteInsightRow']").forEach(el => el.remove())
+
+// ❌ REMOVE COLLAPSIBLE HEADERS
+clone.querySelectorAll(".collapsible-header").forEach(el => el.remove())
+
+// ✅ EXPAND ALL CONTENT
+clone.querySelectorAll(".collapsible-content").forEach(el => {
+    el.style.display = "block"
+})
+
+// ---------------- FIX FIRST PAGE BLANK ----------------
+
+// ❗ REMOVE page-break from FIRST section explicitly
+let firstSection = clone.querySelector(".section")
+if(firstSection){
+    firstSection.style.pageBreakBefore = "auto"
+}
+
+// ---------------- REMOVE EMPTY TABLES ----------------
+
+clone.querySelectorAll("table[id*='Table']").forEach(table=>{
+
+let hasData = false
+
+for(let i=1;i<table.rows.length;i++){
+
+let insight = table.rows[i].cells[1].innerText.trim()
+let remarks = table.rows[i].cells[4].innerText.trim()
+
+if(insight || remarks){
+hasData = true
+break
+}
+}
+
+if(!hasData){
+let section = table.closest(".section")
+if(section) section.remove()
+}
+
+})
+
+// ---------------- FINAL HTML ----------------
+
+let content = clone.innerHTML
+
+// ---------------- PRINT STYLES ----------------
+
 let styles = `
 <style>
 
@@ -1289,6 +1322,7 @@ font-family: Arial, Helvetica, sans-serif;
 font-size:11px;
 line-height:1.4;
 color:#000;
+margin:10px;
 }
 
 /* TITLE */
@@ -1302,10 +1336,10 @@ margin-bottom:5px;
 h2{
 font-size:14px;
 font-weight:700;
-margin-top:15px;
-margin-bottom:8px;
-border-bottom:1.5px solid #000;
-padding-bottom:4px;
+margin-top:12px;
+margin-bottom:6px;
+border-bottom:1px solid #000;
+padding-bottom:3px;
 text-transform:uppercase;
 }
 
@@ -1313,23 +1347,13 @@ text-transform:uppercase;
 h3{
 font-size:12px;
 font-weight:600;
-margin-top:10px;
+margin-top:8px;
 margin-bottom:4px;
 }
 
-/* TEXT BLOCK */
+/* TEXT */
 p{
-margin:3px 0;
-}
-
-/* TWO COLUMN LAYOUT */
-.flex-row{
-display:flex;
-gap:20px;
-}
-
-.flex-col{
-width:50%;
+margin:2px 0;
 }
 
 /* TABLE */
@@ -1337,22 +1361,20 @@ table{
 width:100%;
 border-collapse:collapse;
 table-layout:fixed;
-margin-top:8px;
+margin-top:6px;
 }
 
 th, td{
 border:1px solid #000;
-padding:6px;
-font-size:10.5px;
+padding:5px;
+font-size:10px;
 vertical-align:top;
 word-break:break-word;
 }
 
-/* HEADER ROW */
 th{
 background:#e6e6e6;
 font-weight:700;
-text-align:left;
 }
 
 /* REPEAT HEADER */
@@ -1360,13 +1382,13 @@ thead{
 display:table-header-group;
 }
 
-/* PAGE CONTROL */
+/* PAGE BREAK CONTROL */
 .section{
 page-break-before:always;
 }
 
 .section:first-child{
-page-break-before:auto;
+page-break-before:auto !important;
 }
 
 /* AVOID ROW BREAK */
@@ -1374,57 +1396,33 @@ tr{
 page-break-inside:avoid;
 }
 
-/* FOOTER */
-footer{
-position:fixed;
-bottom:0;
-right:10px;
-font-size:10px;
+/* REMOVE EXTRA SPACE */
+div{
+margin:0;
+padding:0;
 }
 
 </style>
-`;
+`
 
-let win = window.open('', '', 'height=700,width=1000');
+// ---------------- PRINT WINDOW ----------------
 
+let win = window.open('', '', 'height=700,width=1000')
 
 win.document.write(`
 <html>
 <head>${styles}</head>
 <body>${content}</body>
 </html>
-`);
+`)
 
-win.document.close();
+win.document.close()
 
-/* REMOVE EMPTY TABLES FROM PDF DOM */
+// ---------------- PRINT ----------------
+
 setTimeout(()=>{
-
-win.document.querySelectorAll("table[id*='Table']").forEach(table=>{
-
-let hasData = false;
-
-for(let i=1;i<table.rows.length;i++){
-
-let insight = table.rows[i].cells[1].innerText.trim();
-let remarks = table.rows[i].cells[4].innerText.trim();
-
-if(insight || remarks){
-hasData = true;
-break;
-}
-}
-
-if(!hasData){
-let section = table.closest(".section");
-if(section) section.remove();
-}
-
-});
-
-win.print();
-
-},500);
+win.print()
+},400)
 
 }
  
