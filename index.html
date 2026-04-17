@@ -220,73 +220,62 @@ function analyzeWall(w, m){
 
 let issues = []
 
-let center = Number(m[`${w}_M`])
-let upper = Number(m[`${w}_U`])
+/* ---------------- SELECT CORRECT WALL PAIR ---------------- */
 
-/* ---------------- VERTICAL DEVIATION ---------------- */
-if(center && upper){
+let wp = (w === "NW" || w === "SW")
+  ? [m.wp1_c1, m.wp1_mid, m.wp1_c2]
+  : [m.wp2_c1, m.wp2_mid, m.wp2_c2]
 
-let vDev = Math.abs(upper - center)
-let action = getTreatment(vDev)
+wp = wp.map(Number).filter(x=>x)
+
+if(wp.length !== 3) return issues
+
+/* ---------------- EXPECTED BASELINE ---------------- */
+
+let expected = (wp[0] + wp[1] + wp[2]) / 3
+
+/* ---------------- WALL SAMPLE POINTS ---------------- */
+
+let M = Number(m[`${w}_M`])
+let U = Number(m[`${w}_U`])
+
+let devM = M ? Math.abs(M - expected) : 0
+let devU = U ? Math.abs(U - expected) : 0
+
+let wallDev = Math.max(devM, devU)
+
+/* ---------------- SURFACE / PLANE DEVIATION ---------------- */
+
+let action = getTreatment(wallDev)
 
 if(action){
 issues.push({
-type: "Vertical deviation",
-deviation: Math.round(vDev),
+type: "Wall surface deviation",
+deviation: Math.round(wallDev),
 action
 })
 }
-}
 
-/* ---------------- PLAN TILT (FROM WP) ---------------- */
+/* ---------------- PLAN TILT (ORTHOGONALITY DRIVER) ---------------- */
 
-if(w === "NW" || w === "SW"){
+let c1 = wp[0]
+let c2 = wp[2]
 
-let c1 = Number(m.wp1_c1)
-let c2 = Number(m.wp1_c2)
+let tilt = Math.abs(c1 - c2)
+let tiltAction = getTreatment(tilt)
 
-if(c1 && c2){
+if(tiltAction){
 
-let diff = Math.abs(c1 - c2)
-let action = getTreatment(diff)
-
-if(action){
-
-let problemWall = c1 > c2 ? "NW" : "SW"
+let problemWall = (c1 > c2)
+  ? (w === "NW" || w === "SW" ? "NW" : "EW")
+  : (w === "NW" || w === "SW" ? "SW" : "WW")
 
 if(problemWall === w){
 issues.push({
-type: "Wall tilt",
-deviation: Math.round(diff),
-action
+type: "Wall tilt (non-parallel)",
+deviation: Math.round(tilt),
+action: tiltAction
 })
-}
-}
-}
-}
-
-if(w === "EW" || w === "WW"){
-
-let c1 = Number(m.wp2_c1)
-let c2 = Number(m.wp2_c2)
-
-if(c1 && c2){
-
-let diff = Math.abs(c1 - c2)
-let action = getTreatment(diff)
-
-if(action){
-
-let problemWall = c1 > c2 ? "EW" : "WW"
-
-if(problemWall === w){
-issues.push({
-type: "Wall tilt",
-deviation: Math.round(diff),
-action
-})
-}
-}
 }
 }
 
@@ -990,23 +979,7 @@ output:(m)=>`Dark shade on walls (${getUniqueWalls(m)}). Repainting not recommen
 /* ================= MEASUREMENT ================= */
 /*Room orthogonality option 1*/ 
 {
-id:"ROOM_DIAGONAL",
-type:"measurement",
-condition:{fields:["diag1","diag2"]},
-output:(v)=>{
-let a=Number(v[0]), b=Number(v[1]);
-if(!a||!b) return null;
-let diff=Math.abs(a-b);
-
-if(diff>20) return "Room walls are not orthogonal/in level. Room diagonal deviation > 20 mm. Plastering or wall panelling will be required";
-if(diff>=5) return "Room walls are not orthogonal/in level.Room diagonals deviation 5–20 mm. Punning required";
-
-return null;
-}
-},
-/*Room orthogonality option 2*/ 
-{
-id:"WALL_ENGINE_14PT",
+id:"WALL_ENGINE_FINAL",
 type:"measurement",
 condition:{fields:[
 "wp1_c1","wp1_mid","wp1_c2",
@@ -1027,37 +1000,9 @@ allIssues.push({wall:w, issues:res})
 }
 })
 
-/* ---------------- ROOM SUMMARY ---------------- */
+let summary = getRoomOrthoSummary(m)
 
-let summary = ""
-
-let wp1 = [m.wp1_c1, m.wp1_mid, m.wp1_c2].map(Number).filter(x=>x)
-let wp2 = [m.wp2_c1, m.wp2_mid, m.wp2_c2].map(Number).filter(x=>x)
-
-if(wp1.length === 3 && wp2.length === 3){
-
-let dev1 = Math.max(...wp1) - Math.min(...wp1)
-let dev2 = Math.max(...wp2) - Math.min(...wp2)
-
-let avg1 = (wp1[0] + wp1[1] + wp1[2]) / 3
-let avg2 = (wp2[0] + wp2[1] + wp2[2]) / 3
-
-let skew = Math.abs(avg1 - avg2)
-
-let maxDev = Math.max(dev1, dev2, skew)
-
-if(maxDev > 30){
-summary = "Room not orthogonal (>30 mm)"
-}
-else if(maxDev > 20){
-summary = "Room not orthogonal (20–30 mm)"
-}
-else if(maxDev > 5){
-summary = "Room slightly skewed (5–20 mm)"
-}
-}
-
-/* ---------------- BUILD OUTPUT ---------------- */
+/* 🔥 IMPORTANT: Even if orthogonal → still show wall issues */
 
 if(!allIssues.length && !summary) return null
 
@@ -1467,6 +1412,32 @@ XLSX.utils.book_append_sheet(wb, ws, "Insights");
 XLSX.writeFile(wb, "Insights.xlsx");
 }
 
+function getRoomOrthoSummary(m){
+
+let wp1 = [m.wp1_c1, m.wp1_mid, m.wp1_c2].map(Number).filter(x=>x)
+let wp2 = [m.wp2_c1, m.wp2_mid, m.wp2_c2].map(Number).filter(x=>x)
+
+if(wp1.length !== 3 || wp2.length !== 3) return ""
+
+let dev1 = Math.max(...wp1) - Math.min(...wp1)
+let dev2 = Math.max(...wp2) - Math.min(...wp2)
+
+let avg1 = (wp1[0] + wp1[1] + wp1[2]) / 3
+let avg2 = (wp2[0] + wp2[1] + wp2[2]) / 3
+
+let skew = Math.abs(avg1 - avg2)
+
+let maxDev = Math.max(dev1, dev2, skew)
+
+if(maxDev > 30) return "Room not orthogonal (>30 mm)"
+if(maxDev > 20) return "Room not orthogonal (20–30 mm)"
+if(maxDev > 5) return "Room slightly skewed (5–20 mm)"
+
+return ""
+}
+
+
+ 
 function downloadPDF(){
 
 // 🔥 CLONE CLEAN COPY (DO NOT USE RAW HTML)
