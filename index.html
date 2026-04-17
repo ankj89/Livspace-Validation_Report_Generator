@@ -216,7 +216,82 @@ return Array.from(wallSet)
 
 }
 
+function analyzeWall(w, m){
 
+let issues = []
+
+let center = Number(m[`${w}_M`])
+let upper = Number(m[`${w}_U`])
+
+/* ---------------- VERTICAL DEVIATION ---------------- */
+if(center && upper){
+
+let vDev = Math.abs(upper - center)
+let action = getTreatment(vDev)
+
+if(action){
+issues.push({
+type: "Vertical deviation",
+deviation: Math.round(vDev),
+action
+})
+}
+}
+
+/* ---------------- PLAN TILT (FROM WP) ---------------- */
+
+if(w === "NW" || w === "SW"){
+
+let c1 = Number(m.wp1_c1)
+let c2 = Number(m.wp1_c2)
+
+if(c1 && c2){
+
+let diff = Math.abs(c1 - c2)
+let action = getTreatment(diff)
+
+if(action){
+
+let problemWall = c1 > c2 ? "NW" : "SW"
+
+if(problemWall === w){
+issues.push({
+type: "Wall tilt",
+deviation: Math.round(diff),
+action
+})
+}
+}
+}
+}
+
+if(w === "EW" || w === "WW"){
+
+let c1 = Number(m.wp2_c1)
+let c2 = Number(m.wp2_c2)
+
+if(c1 && c2){
+
+let diff = Math.abs(c1 - c2)
+let action = getTreatment(diff)
+
+if(action){
+
+let problemWall = c1 > c2 ? "EW" : "WW"
+
+if(problemWall === w){
+issues.push({
+type: "Wall tilt",
+deviation: Math.round(diff),
+action
+})
+}
+}
+}
+}
+
+return issues
+}
 
 
  
@@ -255,7 +330,71 @@ document.getElementById("postFinalize").classList.remove("hidden");
 
 alert("Report loaded");
 }
+function getTreatment(mm){
 
+if(mm <= ORTHO_LIMITS.minor){
+    return null
+}
+
+if(mm > 5 && mm <= 20){
+    return "POP punning required"
+}
+
+if(mm > 20 && mm <= 30){
+    return "Plastering + punning required"
+}
+
+if(mm > 30){
+    return "Wall panelling required"
+}
+
+return null
+}
+
+function detectWallIssuesAdvanced(wp, walls){
+
+let c1 = Number(wp[0].val)
+let mid = Number(wp[1].val)
+let c2 = Number(wp[2].val)
+
+let issues = []
+
+/* ---------------- MID DEVIATION (BULGE / DIP) ---------------- */
+
+let expectedMid = (c1 + c2) / 2
+let midDev = Math.abs(mid - expectedMid)
+
+let treatmentMid = getTreatment(midDev)
+
+if(treatmentMid){
+issues.push({
+wall: walls.join(", "),
+deviation: Math.round(midDev),
+action: treatmentMid
+})
+}
+
+/* ---------------- EDGE DEVIATION (TILT) ---------------- */
+
+let edgeDiff = Math.abs(c1 - c2)
+
+let treatmentEdge = getTreatment(edgeDiff)
+
+if(treatmentEdge){
+
+/* 🔥 IDENTIFY WHICH WALL */
+let problemWall = c1 > c2 ? walls[0] : walls[1]
+
+issues.push({
+wall: problemWall,
+deviation: Math.round(edgeDiff),
+action: treatmentEdge
+})
+}
+
+return issues
+}
+ 
 function loadSelectedReport(){
 let id = document.getElementById("reportList").value;
 if(!id){ alert("Select report"); return; }
@@ -344,7 +483,11 @@ return {type, category};
 }  
 
 /* ---------------- RULE ENGINE CONFIG ---------------- */
-
+const ORTHO_LIMITS = {
+  punning: 5,
+  plaster: 20,
+  panel: 30
+}
 /* ================= SOCIETY RULES ================= */
 const RULES = [
 
@@ -845,7 +988,7 @@ output:(m)=>`Dark shade on walls (${getUniqueWalls(m)}). Repainting not recommen
   
 
 /* ================= MEASUREMENT ================= */
-
+/*Room orthogonality option 1*/ 
 {
 id:"ROOM_DIAGONAL",
 type:"measurement",
@@ -861,7 +1004,79 @@ if(diff>=5) return "Room walls are not orthogonal/in level.Room diagonals deviat
 return null;
 }
 },
+/*Room orthogonality option 2*/ 
+{
+id:"WALL_ENGINE_14PT",
+type:"measurement",
+condition:{fields:[
+"wp1_c1","wp1_mid","wp1_c2",
+"wp2_c1","wp2_mid","wp2_c2",
+"NW_M","EW_M","SW_M","WW_M",
+"NW_U","EW_U","SW_U","WW_U"
+]},
 
+output:(v,m)=>{
+
+let walls = ["NW","EW","SW","WW"]
+let allIssues = []
+
+walls.forEach(w=>{
+let res = analyzeWall(w, m)
+if(res.length){
+allIssues.push({wall:w, issues:res})
+}
+})
+
+/* ---------------- ROOM SUMMARY ---------------- */
+
+let summary = ""
+
+let wp1 = [m.wp1_c1, m.wp1_mid, m.wp1_c2].map(Number).filter(x=>x)
+let wp2 = [m.wp2_c1, m.wp2_mid, m.wp2_c2].map(Number).filter(x=>x)
+
+if(wp1.length === 3 && wp2.length === 3){
+
+let dev1 = Math.max(...wp1) - Math.min(...wp1)
+let dev2 = Math.max(...wp2) - Math.min(...wp2)
+
+let avg1 = (wp1[0] + wp1[1] + wp1[2]) / 3
+let avg2 = (wp2[0] + wp2[1] + wp2[2]) / 3
+
+let skew = Math.abs(avg1 - avg2)
+
+let maxDev = Math.max(dev1, dev2, skew)
+
+if(maxDev > 30){
+summary = "Room not orthogonal (>30 mm)"
+}
+else if(maxDev > 20){
+summary = "Room not orthogonal (20–30 mm)"
+}
+else if(maxDev > 5){
+summary = "Room slightly skewed (5–20 mm)"
+}
+}
+
+/* ---------------- BUILD OUTPUT ---------------- */
+
+if(!allIssues.length && !summary) return null
+
+let detail = allIssues.map(w=>{
+
+let parts = w.issues.map(i=>
+`${i.type}: ${i.deviation} mm → ${i.action}`
+)
+
+return `${w.wall}: ${parts.join(", ")}`
+}).join(" | ")
+
+return [summary, detail].filter(Boolean).join(". ")
+
+}
+}
+ 
+;
+ 
 {
 id:"CEILING_VARIATION",
 type:"measurement",
