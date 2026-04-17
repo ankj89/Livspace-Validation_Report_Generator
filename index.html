@@ -9,6 +9,12 @@
 <style>
 body{font-family:Arial;background:#f4f6fb;padding:20px}
 .card{background:#fff;padding:20px;border-radius:10px;max-width:650px;margin:auto}
+ .card{
+position:sticky;
+top:0;
+z-index:1000;
+}
+
 button{padding:10px 16px;background:#1e3d8f;color:white;border:none;border-radius:6px;margin-top:10px;cursor:pointer;margin-right:8px}
 .section{
 break-before: page;
@@ -24,7 +30,7 @@ page-break-before: auto;
 table{
 width:100%;
 border-collapse:collapse;
-table-layout:auto;
+table-layout:fixed;
 font-family:Arial;
 }
 
@@ -71,6 +77,49 @@ font-style:italic;
 color:#000;
 font-style:normal;
 }
+
+.collapsible-header{
+background:#1e3d8f;
+color:white;
+padding:8px;
+cursor:pointer;
+margin-top:10px;
+border-radius:6px;
+}
+
+.collapsible-content{
+display:none;
+padding:10px 0;
+} 
+/* 🔥 UX IMPROVEMENTS */
+
+/* 1. STICKY TOP CONTROL PANEL */
+.card{
+position:sticky;
+top:0;
+z-index:1000;
+}
+
+/* 2. HIGHLIGHT EDITABLE CELLS */
+td[contenteditable="true"]{
+background:#fffbe6;
+}
+
+/* 3. FREEZE TABLE HEADER */
+thead th{
+position:sticky;
+top:0;
+background:#d9d9d9;
+z-index:2;
+}
+
+/* 4. BETTER SCROLL VISIBILITY */
+table{
+overflow:auto;
+display:block;
+max-height:400px;
+}
+ 
 </style>
 </head>
 
@@ -1150,7 +1199,22 @@ let cell = row.insertCell(i);
 cell.contentEditable = "true";
 cell.innerText = "";
 }
+ row.scrollIntoView({behavior:"smooth",block:"center"})
 }
+ 
+function deleteInsightRow(el){
+
+let row = el.closest("tr")
+let table = row.closest("table")
+
+row.remove()
+
+// 🔥 REINDEX
+[...table.rows].slice(1).forEach((r,i)=>{
+r.cells[0].innerHTML = `${i+1} <span onclick="deleteInsightRow(this)" style="color:red;cursor:pointer;margin-left:6px;">❌</span>`
+})
+
+} 
 function saveInsights(){
 
 insightsData = [];
@@ -1186,16 +1250,23 @@ saveCurrentReport();
 alert("Insights saved successfully");
 }
 
- 
 function enableEditing(){
 
 document.querySelectorAll("table[id*='Table'] td")
-.forEach(td => td.setAttribute("contenteditable","true"));
+.forEach(td => td.setAttribute("contenteditable","true"))
 
-document.getElementById("saveBtn").classList.remove("hidden");
-document.getElementById("postFinalize").classList.add("hidden");
- saveCurrentReport();
+/* 🔥 SCROLL TO FIRST TABLE */
+let firstTable = document.querySelector("table[id*='Table']")
+if(firstTable){
+firstTable.scrollIntoView({behavior:"smooth"})
 }
+
+document.getElementById("saveBtn").classList.remove("hidden")
+document.getElementById("postFinalize").classList.add("hidden")
+
+saveCurrentReport()
+}
+
 
 function downloadExcel(){
 let ws = XLSX.utils.aoa_to_sheet(insightsData);
@@ -1360,30 +1431,32 @@ win.print();
 /* 🔷 HELPER */
 function deleteInsightBlock(tableId){
 
-let table = document.getElementById(tableId);
-if(!table) return;
+let table = document.getElementById(tableId)
+if(!table) return
 
-let hasRealData = false;
+let hasData = false
 
 for(let i=1;i<table.rows.length;i++){
 
-let insight = table.rows[i].cells[1].innerText.trim();
-let remarks = table.rows[i].cells[4].innerText.trim();
+let cells = table.rows[i].cells
 
-/* ONLY CHECK THESE */
-if(insight || remarks){
-hasRealData = true;
-break;
+for(let j=1;j<cells.length;j++){
+if(cells[j].innerText.trim()){
+hasData = true
+break
 }
 }
 
-if(hasRealData){
-alert("Cannot delete section. It contains data.");
-return;
+if(hasData) break
 }
 
-let section = table.closest(".section");
-if(section) section.remove();
+if(hasData){
+alert("Cannot delete section. It contains data.")
+return
+}
+
+let section = table.closest(".section")
+if(section) section.remove()
 
 }
 function getFloorNumber(){
@@ -1404,6 +1477,16 @@ function allowManualLifting(){
 
     return floor >= 4;  // 🔥 ONLY allow if 4 or above
 } 
+
+function toggleSection(el){
+
+let content = el.nextElementSibling
+
+content.style.display = 
+content.style.display === "block" ? "none" : "block"
+
+}
+ 
 function parseCustomDate(str){
 
 if(!str) return null;
@@ -1535,6 +1618,21 @@ html += `<p><b>${i.Question}:</b> ${i.Value || ""}</p>`;
 
 html += `</div>`;
 }
+/* INSIGHTS */
+/* ================= INSIGHTS ================= */
+
+let autoInsights = runRuleEngine(rooms);
+
+/* SPLIT */
+let roomInsights = {};
+let societyInsights = [];
+
+rooms.forEach(r => roomInsights[r] = []);
+
+autoInsights.forEach(i=>{
+if(i.room === "All") societyInsights.push(i.text);
+else roomInsights[i.room].push(i.text);
+});
 
 /* MATRIX */
 /* -------- ROOM MATRIX -------- */
@@ -1607,21 +1705,6 @@ html+='</tr>';
 });
 html+='</tbody></table></div>';
 
-/* INSIGHTS */
-/* ================= INSIGHTS ================= */
-
-let autoInsights = runRuleEngine(rooms);
-
-/* SPLIT */
-let roomInsights = {};
-let societyInsights = [];
-
-rooms.forEach(r => roomInsights[r] = []);
-
-autoInsights.forEach(i=>{
-if(i.room === "All") societyInsights.push(i.text);
-else roomInsights[i.room].push(i.text);
-});
 
 
 function createInsightTable(title, dataArr, tableId){
@@ -1644,17 +1727,20 @@ let html = `<div class="section">
 </thead>
 <tbody>
 `;
-let rows = Math.max(dataArr.length, 5);
+let rows = dataArr.length || 1
 
 for(let i=0;i<rows;i++){
 
 let txt = dataArr[i] || "";
-let meta = classifyInsight(txt);
+let meta = txt ? classifyInsight(txt) : {type:"", category:""}
 
 
 /* HTML */
 html += `<tr>
-<td>${i+1}</td>
+<td>
+${i+1}
+<span onclick="deleteInsightRow(this)" style="color:red;cursor:pointer;margin-left:6px;">❌</span>
+</td>
 <td contenteditable="true">${txt}</td>
 <td contenteditable="true">${meta.type}</td>
 <td contenteditable="true">${meta.category}</td>
@@ -1673,8 +1759,20 @@ html += createInsightTable("Society Insights", societyInsights, "societyTable");
 
 /* ROOMS */
 rooms.forEach((room, index)=>{
-html += createInsightTable(`${room} Insights`, roomInsights[room], `roomTable_${index}`);
+
+html += `
+<div class="collapsible-header" onclick="toggleSection(this)">
+${room} Insights
+</div>
+<div class="collapsible-content">
+${createInsightTable("", roomInsights[room], `roomTable_${index}`)}
+</div>
+`
+
 });
+
+
+ 
 html += `</div>`;
 document.getElementById("reportPreview").innerHTML=html;
 document.getElementById("saveBtn").classList.remove("hidden");
