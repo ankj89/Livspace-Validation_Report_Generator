@@ -105,7 +105,19 @@ background:#fffbe6;
 <body>
 
 <div class="card">
-<h2>Validation Report Generator 1.2</h2>
+<h2>Validation Report Generator 2.0</h2>
+ <div id="dropZone" style="
+border:2px dashed #1e3d8f;
+padding:20px;
+text-align:center;
+margin-bottom:10px;
+background:#f8faff;
+cursor:pointer;
+">
+Drop Excel file here or click to upload
+</div>
+
+
 <input type="file" id="fileInput" accept=".xlsx" />
 <br>
 <button id="generateBtn">Generate Report</button>
@@ -137,8 +149,14 @@ var measData = [];
 var matrixDataRaw = [];
 var projectDataRaw = {};
 var societyData = [];
+ var wallMeasData = [];
 let currentReportId = null;
-function norm(str){return (str||"").toLowerCase().replace(/[^a-z0-9]/g,"");}
+ 
+function norm(str){
+return (str || "")
+.toLowerCase()
+.replace(/\s/g,"")   // only remove spaces
+}
 function getAllReports(){
 return JSON.parse(localStorage.getItem("validationReports") || "{}");
 }
@@ -165,6 +183,9 @@ let ts = now.toLocaleString();
 return `${pid}_${cx} (${ts})`;
 
 }
+
+
+ 
  
 function saveCurrentReport(){
 
@@ -186,101 +207,9 @@ localStorage.setItem("validationReports", JSON.stringify(allReports));
 populateReportList();
 }
  
-function getUniqueWalls(matches){
 
-let wallSet = new Set();
 
-matches.forEach(x=>{
 
-if(!x.Walls) return;
-
-/* split multiple */
-x.Walls.split(",").forEach(w=>{
-
-let clean = w.trim().toUpperCase();
-
-if(["NW","EW","SW","WW"].includes(clean)){
-wallSet.add(clean);
-}
-
-});
-
-});
-
-/* order */
-const order = ["NW","EW","SW","WW"];
-
-return Array.from(wallSet)
-.sort((a,b)=>order.indexOf(a)-order.indexOf(b))
-.join(", ");
-
-}
-
-function analyzeWall(w, m){
-
-let issues = []
-
-/* ---------------- SELECT CORRECT WALL PAIR ---------------- */
-
-let wp = (w === "NW" || w === "SW")
-  ? [m.wp1_c1, m.wp1_mid, m.wp1_c2]
-  : [m.wp2_c1, m.wp2_mid, m.wp2_c2]
-
-wp = wp.map(Number).filter(x=>x)
-
-if(wp.length !== 3) return issues
-
-/* ---------------- EXPECTED BASELINE ---------------- */
-
-let expected = (wp[0] + wp[1] + wp[2]) / 3
-
-/* ---------------- WALL SAMPLE POINTS ---------------- */
-
-let M = Number(m[`${w}_M`])
-let U = Number(m[`${w}_U`])
-
-let devM = M ? Math.abs(M - expected) : 0
-let devU = U ? Math.abs(U - expected) : 0
-
-let wallDev = Math.max(devM, devU)
-
-/* ---------------- SURFACE / PLANE DEVIATION ---------------- */
-
-let action = getTreatment(wallDev)
-
-if(action){
-issues.push({
-type: "Wall surface deviation",
-deviation: Math.round(wallDev),
-action
-})
-}
-
-/* ---------------- PLAN TILT (ORTHOGONALITY DRIVER) ---------------- */
-
-let c1 = wp[0]
-let c2 = wp[2]
-
-let tilt = Math.abs(c1 - c2)
-let tiltAction = getTreatment(tilt)
-
-if(tiltAction){
-
-let problemWall = (c1 > c2)
-  ? (w === "NW" || w === "SW" ? "NW" : "EW")
-  : (w === "NW" || w === "SW" ? "SW" : "WW")
-
-if(problemWall === w){
-issues.push({
-type: "Wall tilt (non-parallel)",
-deviation: Math.round(tilt),
-action: tiltAction
-})
-}
-}
-
-return issues
-}
 
 
  
@@ -406,7 +335,21 @@ populateReportList();
 
 alert("Report deleted");
 }
+function getWallsFromRoom(matches){
 
+let walls = matches.map(x => x.Walls).filter(w => w && w.trim() !== "")
+
+/* 🔥 split if multiple like "E1,E2" */
+let expanded = walls.flatMap(w =>
+w.split(",").map(e => e.trim())
+)
+
+/* 🔥 unique */
+return [...new Set(expanded)].join(", ")
+
+
+}
+ 
 function populateReportList(){
 
 let reports = getAllReports();
@@ -432,7 +375,7 @@ let t = (text || "").toLowerCase();
 /* TYPE */
 let type = "";
 
-if(t.includes("design") || t.includes("suggested") || t.includes("recommended")){
+if(t.includes("design") || t.includes("false") || t.includes("recommended")){
 type = "Design Input";
 }
 else if(t.includes("charges") || t.includes("cost") || t.includes("additional")){
@@ -811,21 +754,40 @@ output:()=> "Tile-on-tile installation feasible. Modifications to existing doors
 id:"REPAINT_FEASIBLE",
 type:"room",
 condition:{itemIncludes:"paint"},  // trigger once per room
+
 output:(matches)=>{
 
 let room = matches[0].Room;
 
-/* ---------------- FETCH ROOM DATA ---------------- */
+/* ---------------- FETCH DATA ---------------- */
 let wallsData = matrixDataRaw.filter(x => x.Room === room);
-let meas = measData.find(m => m.Room === room) || {};
 
-/* ---------------- CONDITIONS ---------------- */
+/* ---------------- UNDULATION CHECK (UPDATED) ---------------- */
 
-/* 1. UNDULATION CHECK */
-let undVals = [meas.undNW, meas.undEW, meas.undSW, meas.undWW]
-.map(Number).filter(x=>x>0);
+let elevs = getElevations(room)
 
-let undulationOK = undVals.length ? undVals.every(v => v <= 3) : true;
+let undulationOK = true
+
+if(elevs.length){
+
+undulationOK = elevs.every(e=>{
+
+let c = getWallValue(room, e, "Center")
+let u = getWallValue(room, e, "Upper")
+
+/* if no data → ignore wall */
+if(!c && !u) return true
+
+let dev = Math.abs((u || c) - c)
+
+/* threshold same as earlier logic */
+return dev <= 3
+
+})
+
+}
+
+/* ---------------- OTHER CONDITIONS ---------------- */
 
 /* 2. PUNNING / PLASTER CHECK */
 let hasPunning = wallsData.some(x =>
@@ -885,21 +847,21 @@ output:()=> "Undulation observed on true ceiling. Flat false ceiling suggested. 
 id:"LOAD_BEARING",
 type:"wall",
 condition:{itemIncludes:"load-bearing",valueEquals:"yes"},
-output:(m)=>`RCC walls (${getUniqueWalls(m)}) detected. No demolition or chiselling allowed. Wall panelling required for any electrical works`
+output:(m)=>`RCC walls (${getWallsFromRoom(m)}) detected. No demolition or chiselling allowed. Wall panelling required for any electrical works`
 },
 
 {
 id:"DRY_WALL",
 type:"wall",
 condition:{itemIncludes:"dry wall",valueEquals:"yes"},
-output:(m)=>`Dry walls (${getUniqueWalls(m)}) detected. Bison board panelling or ply support required incase we are doing any carpentry work on the wall`
+output:(m)=>`Dry walls (${getWallsFromRoom(m)}) detected. Bison board panelling or ply support required incase we are doing any carpentry work on the wall`
 },
 
 {
 id:"NICHES",
 type:"wall",
 condition:{itemIncludes:"niches",valueEquals:"yes"},
-output:(m)=>`Niches present on walls (${getUniqueWalls(m)}).Ply packing cost to be added in case of levelling/flushing.`
+output:(m)=>`Niches present on walls (${getWallsFromRoom(m)}).Ply packing cost to be added in case of levelling/flushing.`
 },
 
 {
@@ -907,7 +869,8 @@ id:"STRUCTURAL_CRACK",
 type:"wall",
 condition:{itemIncludes:"major cracks",valueEquals:"yes"},
 output:(m)=>{
-let walls = getUniqueWalls(m);
+ 
+let walls = getWallsFromRoom(m);
 return `Structural cracks observed on walls (${walls}). Need suitable treatment (under Cx Scope)`;
 }
 },
@@ -916,14 +879,14 @@ return `Structural cracks observed on walls (${walls}). Need suitable treatment 
 id:"HAIRLINE",
 type:"wall",
 condition:{itemIncludes:"hairline crack",valueEquals:"yes"},
-output:(m)=>`Hairline cracks/loose plaster observed on walls (${getUniqueWalls(m)}). Re-plastering required`
+output:(m)=>`Hairline cracks/loose plaster observed on walls (${getWallsFromRoom(m)}). Re-plastering required`
 },
 
 {
 id:"SEEPAGE",
 type:"wall",
 condition:{itemIncludes:"seepage",valueEquals:"yes"},
-output:(m)=>`Seepage observed on walls (${getUniqueWalls(m)}). Waterproofing/Damproofing required before start of works(under Cx scope)`
+output:(m)=>`Seepage observed on walls (${getWallsFromRoom(m)}). Waterproofing/Damproofing required before start of works(under Cx scope)`
 },
 
 {
@@ -936,13 +899,13 @@ output:()=> "AC point not available. Lowside works required to be done. Discuss 
 id:"AC_PELMET",
 type:"wall",
 condition:{itemIncludes:"panelling/pelmet",valueEquals:"yes"},
-output:(m)=>`AC pelmet/panelling required on walls (${getUniqueWalls(m)})`
+output:(m)=>`AC pelmet/panelling required on walls (${getWallsFromRoom(m)})`
 },
 {
 id:"SWITCH_SOCKET_BAD",
 type:"wall",
 condition:{itemIncludes:"switches and sockets",valueEquals:"no"},
-output:(m)=>`Switches/sockets not in working condition on walls (${getUniqueWalls(m)}). Replacement and rewiring to be considered`
+output:(m)=>`Switches/sockets not in working condition on walls (${getWallsFromRoom(m)}). Replacement and rewiring to be considered`
 },  
 {
 id:"SKIRTING_NOT_FLUSH",
@@ -972,7 +935,7 @@ output:()=> "Sufficient space not available to install additional window tracks.
 id:"DARK_SHADE",
 type:"wall",
 condition:{itemIncludes:"darker shade",valueEquals:"yes"},
-output:(m)=>`Dark shade on walls (${getUniqueWalls(m)}). Repainting not recommended with lighter shade.Fresh paint to be considered`
+output:(m)=>`Dark shade on walls (${getWallsFromRoom(m)}). Repainting not recommended with lighter shade.Fresh paint to be considered`
 },
   
 
@@ -981,41 +944,64 @@ output:(m)=>`Dark shade on walls (${getUniqueWalls(m)}). Repainting not recommen
 {
 id:"WALL_ENGINE_FINAL",
 type:"measurement",
-condition:{fields:[
-"wp1_c1","wp1_mid","wp1_c2",
-"wp2_c1","wp2_mid","wp2_c2",
-"NW_M","EW_M","SW_M","WW_M",
-"NW_U","EW_U","SW_U","WW_U"
-]},
 
 output:(v,m)=>{
 
-let walls = ["NW","EW","SW","WW"]
-let allIssues = []
+let elevs = getElevations(m.Room)
 
-walls.forEach(w=>{
-let res = analyzeWall(w, m)
-if(res.length){
-allIssues.push({wall:w, issues:res})
+if(elevs.length < 2) return null
+
+let issues = []
+
+/* ---------------- WALL LEVEL CHECK ---------------- */
+
+elevs.forEach(e=>{
+
+let center = getWallValue(m.Room, e, "Center")
+let upper  = getWallValue(m.Room, e, "Upper")
+
+if(!center && !upper) return
+
+let dev = Math.abs((upper || center) - center)
+
+let action = getTreatment(dev)
+
+if(action){
+issues.push(`${e}: ${dev} mm → ${action}`)
 }
+
 })
 
-let summary = getRoomOrthoSummary(m)
+/* ---------------- ORTHOGONAL CHECK ---------------- */
 
-/* 🔥 IMPORTANT: Even if orthogonal → still show wall issues */
+if(elevs.length >= 4){
 
-if(!allIssues.length && !summary) return null
+let pair1 = [elevs[0], elevs[2]]
+let pair2 = [elevs[1], elevs[3]]
 
-let detail = allIssues.map(w=>{
+let getAvg = (pair)=>{
+let vals = pair.map(e => getWallValue(m.Room, e, "Center")).filter(x=>x)
+if(!vals.length) return 0
+return vals.reduce((a,b)=>a+b,0)/vals.length
+}
 
-let parts = w.issues.map(i=>
-`${i.type}: ${i.deviation} mm → ${i.action}`
-)
+let avg1 = getAvg(pair1)
+let avg2 = getAvg(pair2)
 
-return `${w.wall}: ${parts.join(", ")}`
-}).join(" | ")
+let skew = Math.abs(avg1 - avg2)
 
-return [summary, detail].filter(Boolean).join(". ")
+if(skew > 5){
+let action = getTreatment(skew)
+if(action){
+issues.push(`Room skew: ${skew} mm → ${action}`)
+}
+}
+
+}
+
+if(!issues.length) return null
+
+return issues.join(" | ")
 
 }
 },
@@ -1038,12 +1024,13 @@ return null;
 {
 id:"CLEAR_HEIGHT_ADV",
 type:"measurement",
-condition:{fields:["beamFloor","sprinklerFloor","fc1","fc2","fc3","fc4","fc5","doorsoffitNW","doorsoffitEW","doorsoffitSW","doorsoffitWW","winSoffitNW","winSoffitEW","winSoffitSW","winSoffitWW"]},
+condition:{fields:["beamFloor","sprinklerFloor","fc1","fc2","fc3","fc4","fc5"]},
 output:(v,m)=>{
 
 /* ---------------- BASE HEIGHTS ---------------- */
 
 let fcVals = [m.fc1,m.fc2,m.fc3,m.fc4,m.fc5].map(Number).filter(x=>x>0);
+ 
 if(!fcVals.length) return null;
 
 let fcMin = Math.min(...fcVals);
@@ -1057,25 +1044,35 @@ let msgs = [];
 
 /* FLOOR TO CEILING */
 msgs.push(`Floor to ceiling clear height: ${fcMin} mm`);
-
+let lowHeightBeam = false;
+let lowHeightSprinkler = false;
 /* BEAM */
 if(beam>0){
+
 msgs.push(`Offset beam present. Clear height at beam: ${beam} mm`);
+
+if(beam < 2490){
+lowHeightBeam = true;
+
+msgs.push(`Offset beam cannot be concealed in flat false ceiling as clear height will become <8ft. Peripheral False Ceiling suggested or keep beam exposed/boxed`);
 }
-if(beam-2490<0){
-msgs.push(`Offset beam cannot be concelaed in flat false ceiling as clear height will become <8ft. Periperal False Ceiling suggested or keep beam exposed/boxed`);
 }
 /* SPRINKLER / UTILITIES */
 if(sprinkler>0){
+
 msgs.push(`Utilities/sprinkler/HVAC line present. Clear height: ${sprinkler} mm`);
+
+if(sprinkler < 2490){
+lowHeightSprinkler = true;
+
+msgs.push(`Utilities cannot be concealed in flat false ceiling as clear height will become <8ft. Peripheral False Ceiling suggested`);
 }
-if(sprinkler-2490<0){
-msgs.push(`Utilities cannot be concelaed in flat false ceiling as clear height will become <8ft. Periperal False Ceiling suggested`);
 }
 /* SPRINKLER / UTILITIES */
 /* ---------------- EFFECTIVE HEIGHT ---------------- */
 
 /* take minimum of all valid */
+ 
 let validHeights = [fcMin, beam, sprinkler].filter(x=>x>0);
  let permHeights = [beam, sprinkler].filter(x=>x>0);
 let effective = Math.max(...validHeights);
@@ -1083,39 +1080,85 @@ let permicible = Math.max(...permHeights);
 /* ---------------- FALSE CEILING CALC ---------------- */
 
 /* target clear height = 8 ft = 2440 mm */
-let target = 2490;
+/* ---------------- TARGETS ---------------- */
 
-/* max drop allowed */
-let maxDrop = effective - target;
- 
-let minDrop = effective - permicible;
+let target8 = 2490
+let target9 = 2740
 
-if(maxDrop < 75){
-msgs.push( `Available depth only ${maxDrop} mm. False ceiling not recommended`);
+/* ---------------- DROP CALC ---------------- */
+
+let maxDrop8 = effective - target8
+let minDrop8 = effective - permicible
+
+let maxDrop9 = effective - target9
+let minDrop9 = effective - permicible
+
+/* ---------------- DECISION ---------------- */
+/* ---------------- DECISION ---------------- */
+
+if(maxDrop8 <= 0){
+msgs.push(`No space available for false ceiling. Keep ceiling exposed or redesign services`);
 }
-/* minimum drop (practical service gap) */
-if(permicible>2490){
- msgs.push( `Recommended false ceiling drop: ${minDrop} mm to ${maxDrop} mm`);
-}  // can adjust to 75–100
-if(permicible<2490){
-msgs.push( `Recommended false ceiling drop: 75 mm to ${maxDrop} mm`);
+else if(maxDrop8 < 75){
+msgs.push(`Available depth only ${Math.round(maxDrop8)} mm. False ceiling not recommended`);
 }
 
+/* ---------------- RECOMMENDATION (8 FT) ---------------- */
+
+if(maxDrop8 > 0){
+
+if(permicible > target8){
+msgs.push(`Recommended false ceiling drop (8 ft): ${Math.round(minDrop8)} mm to ${Math.round(maxDrop8)} mm`);
+}
+else{
+msgs.push(`Recommended false ceiling drop (8 ft): 75 mm to ${Math.round(maxDrop8)} mm`);
+}
+
+}
+
+/* ---------------- RECOMMENDATION (9 FT) ---------------- */
+
+if(maxDrop9 <= 0){
+msgs.push(`9 ft clear height not achievable`);
+}
+else{
+msgs.push(`Recommended false ceiling drop (9 ft): ${Math.round(minDrop9)} mm to ${Math.round(maxDrop9)} mm`);
+}
+
+/* ---------------- COST FLAG ---------------- */
+let drops = [minDrop8, maxDrop8, minDrop9, maxDrop9].filter(x=>x>0)
+let costTrigger = drops.length ? Math.max(...drops) : 0
+
+/* ---------------- BOXING LOGIC ---------------- */
+
+/* ---------------- BOXING LOGIC ---------------- */
+
+/* CASE 1: HEIGHT CONSTRAINT (8 ft OR 9 ft) */
+
+if(lowHeightBeam){
+msgs.push(`Beam will require boxing (ply/gypsum) as it cannot be accommodated within false ceiling (8 ft / 9 ft scenarios)`);
+}
+
+if(lowHeightSprinkler){
+msgs.push(`Sprinkler/utilities will require boxing or exposed integration as false ceiling clearance is insufficient (8 ft / 9 ft scenarios)`);
+}
+
+/* CASE 2: DEEP DROP */
+
+if(costTrigger > 150){
+msgs.push(`False ceiling drop exceeds 150 mm. Consider boxing for beam/services instead of full ceiling drop to optimize cost and height`);
+}
 
 /* ---------------- FINAL ---------------- */
 
-return msgs.join(" | ");
-
+return msgs.join(" | ")
 }
 },
 
 {
 id:"AC_SOFFIT_FINAL",
 type:"measurement",
-condition:{fields:[
-"doorsoffitNW","doorsoffitEW","doorsoffitSW","doorsoffitWW",
-"winSoffitNW","winSoffitEW","winSoffitSW","winSoffitWW"
-]},
+condition:{fields:[]},
 
 output:(v,m)=>{
 
@@ -1124,43 +1167,39 @@ const FC_DROP = 150
 
 let issues = []
 
-;[
-["NW", m.doorsoffitNW, m.winSoffitNW],
-["EW", m.doorsoffitEW, m.winSoffitEW],
-["SW", m.doorsoffitSW, m.winSoffitSW],
-["WW", m.doorsoffitWW, m.winSoffitWW]
-].forEach(([w, d, wS])=>{
+;let elevs = getElevations(m.Room)
+if(!elevs.length) return null
 
-let door = Number(d) || 0
-let win = Number(wS) || 0
+elevs.forEach(e=>{
 
-let soffit = Math.max(door, win)
+let door = getWallValue(m.Room, e, "Door Soffit")
+let win  = getWallValue(m.Room, e, "Window Soffit")
+let doorVal = Number(door) || 0
+let winVal = Number(win) || 0
 
+let soffit = Math.max(doorVal, winVal)
 if(!soffit) return
 
 let available = soffit - FC_DROP
-
-if(available >= AC_REQUIRED){
+if(available <= 0){
+issues.push(`${e}: No space for AC after false ceiling → redesign required`)
 return
 }
 
-let status = ""
+if(available >= 600) return
 
-if(available >= 450){
-status = "Tight - pocket recommended"
-}else{
-status = "Not feasible - redesign required"
-}
+let status = available >= 450
+? "Tight space constraint - pocket maybe required"
+: "Not feasible - redesign required"
 
-issues.push(`${w}: ${Math.round(available)} mm → ${status}`)
+issues.push(`${e}: ${Math.round(available)} mm → ${status}`)
 
 })
-
 if(!issues.length) return null
 
 let multi = issues.length >= 2
 
-return `AC clearance constraint: ${issues.join(" | ")}${multi ? ". Consider island ceiling" : ""}`
+return `AC wall space constraint on: ${issues.join(" | ")}${multi ? ". " : ""}`
 
 }
 },
@@ -1184,52 +1223,49 @@ return null;
 }
 },
 
-{
-id:"SOFFIT_AC",
-type:"measurement",
-condition:{fields:["doorsoffitNW","doorsoffitEW","doorsoffitSW","doorsoffitWW","winSoffitNW","winSoffitEW","winSoffitSW","winSoffitWW"]},
-output:(v,m)=>{
-let walls=[];
-
-[
-["NW",m.doorsoffitNW,m.winSoffitNW],
-["EW",m.doorsoffitEW,m.winSoffitEW],
-["SW",m.doorsoffitSW,m.winSoffitSW],
-["WW",m.doorsoffitWW,m.winSoffitWW]
-].forEach(([w,a,b])=>{
-if((a>0&&a<800)||(b>0&&b<800)) walls.push(w);
-});
-
-if(!walls.length) return null;
-
-return `AC space constraint on walls ${walls.join(", ")}. False ceiling pocket required`;
-}
-},
 
 {
 id:"WALL_UNDULATION",
 type:"measurement",
-condition:{fields:["undNW","undEW","undSW","undWW"]},
+
 output:(v,m)=>{
-let msgs=[];
 
-[
-["NW",m.undNW],
-["EW",m.undEW],
-["SW",m.undSW],
-["WW",m.undWW]
-].forEach(([w,val])=>{
-let x=Number(val)||0;
+/* ---------------- GET ELEVATIONS ---------------- */
+let elevs = getElevations(m.Room)
 
-if(x>5 && x<=20){
-msgs.push(`${w}: Undulation 5–20mm. Punning required`);
+/* 🔒 NO WALL DATA → SKIP */
+if(!elevs.length) return null
+
+let msgs = []
+
+/* ---------------- PROCESS EACH WALL ---------------- */
+elevs.forEach(e=>{
+
+let center = getWallValue(m.Room, e, "Center")
+let upper  = getWallValue(m.Room, e, "Upper")
+
+/* if no data → skip */
+if(!center && !upper) return
+
+/* take worst case deviation */
+let dev = Math.abs((upper || center) - center)
+
+/* ---------------- APPLY RULE ---------------- */
+if(dev > 5 && dev <= 20){
+msgs.push(`${e}: Undulation ${Math.round(dev)} mm → POP punning required`)
 }
-else if(x>20){
-msgs.push(`${w}: Undulation >20mm. Plastering required`);
+else if(dev > 20 && dev <= 30){
+msgs.push(`${e}: Undulation ${Math.round(dev)} mm → Plastering + punning required`)
 }
-});
+else if(dev > 30){
+msgs.push(`${e}: Undulation ${Math.round(dev)} mm → Wall panelling required`)
+}
 
-return msgs.length ? msgs.join(" | ") : null;
+})
+
+/* ---------------- FINAL OUTPUT ---------------- */
+return msgs.length ? msgs.join(" | ") : null
+
 }
 }
 
@@ -1241,9 +1277,10 @@ let insights=[];
 RULES.forEach(rule=>{
 
 if(rule.type==="wall"||rule.type==="room"){
-rooms.forEach(room=>{
+rooms.forEach((rm, index)=>{
+ if(typeof rm !== "string") return;
 let matches = matrixDataRaw.filter(x=>
-x.Room===room &&
+x.Room===rm &&
 norm(x.Item).includes(norm(rule.condition.itemIncludes)) &&
 (
 !rule.condition.valueEquals ||
@@ -1255,7 +1292,12 @@ norm(x.Value||"").includes(norm(rule.condition.valueEquals))
 let uniqueMap = new Map();
 
 matches.forEach(x=>{
-let key = (x.Walls || "").replace(/\s/g,""); // normalize
+let key = (x.Walls || "")
+.split(",")
+.map(w=>w.trim())
+.sort()
+.join(","); // normalize
+ 
 if(!uniqueMap.has(key)){
 uniqueMap.set(key, x);
 }
@@ -1264,7 +1306,7 @@ uniqueMap.set(key, x);
 matches = Array.from(uniqueMap.values());
 if(matches.length){
 let res=rule.output(matches);
-if(res) insights.push({room,text:res});
+if(res) insights.push({room: rm.trim(), text: res});
 }
 });
 }
@@ -1272,8 +1314,21 @@ if(res) insights.push({room,text:res});
 if(rule.type==="measurement"){
 measData.forEach(m=>{
 if(!m.Room) return;
-let vals=rule.condition.fields.map(f=>m[f]||null);
-let res=rule.output(vals,m);
+let vals = [];
+
+if(rule.condition && rule.condition.fields){
+    vals = rule.condition.fields.map(f=>m[f]||null);
+}
+
+ 
+let res = null;
+
+try{
+    res = rule.output(vals,m);
+}catch(e){
+    console.error("Rule failed:", rule.id, e);
+}
+ 
 if(res) insights.push({room:m.Room,text:res});
 });
 }
@@ -1461,205 +1516,356 @@ if(maxDev > 5) return "Room slightly skewed (5–20 mm)"
 return ""
 }
 
+/* ---------------- FIX ELEVATION ---------------- */
+function getElevations(room){
 
+if(!wallMeasData || !wallMeasData.length) return []
+
+return [...new Set(
+wallMeasData
+.filter(r => norm(r.Room) === norm(room))
+.map(r => r.Elevation)
+.filter(e => e && e !== "undefined")
+)]
+
+}
+function getWallValue(room, elevation, type){
+
+let rec = wallMeasData.find(r =>
+norm(r.Room) === norm(room) &&
+norm(r.Elevation) === norm(elevation) &&
+norm(r.Parameter) === norm(type)
+)
+
+return Number(rec?.Value) || 0
+
+}
  
 function downloadPDF(){
 
-// 🔥 CLONE CLEAN COPY (DO NOT USE RAW HTML)
-let clone = document.getElementById("reportPreview").cloneNode(true)
+/* ---------------- CLEAN ROOMS ---------------- */
+let rooms = [...new Set(
+matrixDataRaw
+.map(x => (x.Room || "").toString().trim())
+.filter(r => r && r !== "undefined" && r !== "null")
+)]
 
-// ---------------- CLEAN UI ----------------
+/* HARD SANITY */
+rooms = rooms.filter(r => typeof r === "string" && r.trim() !== "")
 
-// ❌ REMOVE ALL BUTTONS
-clone.querySelectorAll("button").forEach(b => b.remove())
+/* ---------------- RUN RULE ENGINE ---------------- */
+let autoInsights = runRuleEngine(rooms)
 
-// ❌ REMOVE DELETE ICONS (❌)
-clone.querySelectorAll("span[onclick*='deleteInsightRow']").forEach(el => el.remove())
+/* ---------------- BUILD INSIGHT MAP ---------------- */
+let roomInsights = {}
+let societyInsights = []
 
-// ❌ REMOVE COLLAPSIBLE HEADERS
-clone.querySelectorAll(".collapsible-header").forEach(el => el.remove())
-
-// ✅ EXPAND ALL CONTENT
-clone.querySelectorAll(".collapsible-content").forEach(el => {
-    el.style.display = "block"
+rooms.forEach(r=>{
+roomInsights[r.trim()] = []
 })
 
-// ---------------- FIX FIRST PAGE BLANK ----------------
+autoInsights.forEach(i=>{
+if(i.room === "All"){
+societyInsights.push(i.text)
+}else{
+let key = (i.room || "").toString().trim()
 
-// ❗ REMOVE page-break from FIRST section explicitly
-let firstSection = clone.querySelector(".section")
-if(firstSection){
-    firstSection.style.pageBreakBefore = "auto"
+if(!roomInsights[key]){
+roomInsights[key] = []
 }
 
-// ---------------- REMOVE EMPTY TABLES ----------------
-
-clone.querySelectorAll("table[id*='Table']").forEach(table=>{
-
-let hasData = false
-
-for(let i=1;i<table.rows.length;i++){
-
-let insight = table.rows[i].cells[1].innerText.trim()
-let remarks = table.rows[i].cells[4].innerText.trim()
-
-if(insight || remarks){
-hasData = true
-break
+roomInsights[key].push(i.text)
 }
-}
-
-if(!hasData){
-let section = table.closest(".section")
-if(section) section.remove()
-}
-
 })
-
-// ---------------- FINAL HTML ----------------
-// 🔥 ADD ROOM HEADINGS IN PDF ONLY
-
-clone.querySelectorAll("table[id^='roomTable_']").forEach((table, index)=>{
-
-// extract index
-let roomIndex = table.id.split("_")[1]
-
-// try to get room name from original UI
-let headers = document.querySelectorAll(".collapsible-header")
-let roomName = headers[roomIndex] ? headers[roomIndex].innerText.replace(" Insights","") : `Room ${parseInt(roomIndex)+1}`
-
-// 🔥 CREATE HEADING
-let heading = document.createElement("h2")
-heading.innerText = roomName + " Insights"
-
-// 🔥 WRAP IN SECTION (PAGE BREAK)
-let wrapper = document.createElement("div")
-wrapper.classList.add("section")
-
-// move table inside wrapper
-table.parentNode.insertBefore(wrapper, table)
-wrapper.appendChild(heading)
-wrapper.appendChild(table)
-
-})
+/* ---------------- BUILD HTML ---------------- */
+let content = ""
+/* ---------------- PROJECT DETAILS ---------------- */
+let project = matrixDataRaw[0] || {}
  
-let content = clone.innerHTML
 
-// ---------------- PRINT STYLES ----------------
+/* ---------------- COVER PAGE (NEW) ---------------- */
+let pid = Object.keys(project).find(k=>k.toLowerCase().includes("pid"))
+let cx  = Object.keys(project).find(k=>k.toLowerCase().includes("cx"))
 
-let styles = `
+pid = pid ? project[pid] : ""
+cx  = cx  ? project[cx]  : ""
+let date = new Date().toLocaleDateString()
+
+content += `
+<div class="section page" style="display:flex;flex-direction:column;min-height:100vh;justify-content:space-between;align-items:center;text-align:center;">
+
+<div style="margin-top:40px;">
+<h1 style="font-size:26px;letter-spacing:2px;margin-bottom:20px;">
+SITE VALIDATION REPORT
+</h1>
+
+<h2 style="font-size:16px;font-weight:normal;">
+${pid || "-"} ${cx ? "_ " + cx : ""}
+</h2>
+
+<div style="margin-top:10px;font-size:12px;">
+${date}
+</div>
+</div>
+
+<div style="width:100%;margin-bottom:40px;">
+<h2 style="text-align:left;">INDEX</h2>
+
+<table>
+<tr><th>Section</th></tr>
+<tr><td>Validation Summary & Project Details</td></tr>
+<tr><td>Insights(Design,Cost,Execution)</td></tr>
+<tr><td>Society & Work Environment Constraints</td></tr>
+<tr><td>Room & Wall Validation Summary</td></tr>
+<tr><td>Key Measurements</td></tr>
+</table>
+</div>
+
+</div>
+`
+
+/* ---------------- SUMMARY (FIXED) ---------------- */
+/* ---------------- SUMMARY (FIXED + VALIDATION ADDED) ---------------- */
+
+let startTime = ""
+let endTime = ""
+let duration = ""
+
+/* FETCH FROM MEASUREMENT */
+if(measData.length){
+startTime = measData[0].Validation_Start || ""
+endTime = measData[0].Validation_End || ""
+}
+
+let start = parseCustomDate(startTime)
+let end = parseCustomDate(endTime)
+
+if(start && end){
+let diff = end - start
+duration = Math.floor(diff / 60000) + " mins"
+}
+
+content += `<div class="section page" style="display:flex; gap:20px">
+
+<!-- LEFT -->
+<div style="width:50%">
+<h2>VALIDATION SUMMARY</h2>
+
+<p><b>Validator Name:</b> </p>
+<p><b>Validator Email:</b> </p>
+<p><b>ID Name:</b> </p>
+<p><b>ID Email:</b> </p>
+<p><b>BMD Name:</b> </p>
+<p><b>BMD Email:</b> </p>
+
+<p><b>Start Time:</b> ${startTime}</p>
+<p><b>End Time:</b> ${endTime}</p>
+<p><b>Total Time:</b> ${duration}</p>
+</div>
+
+<!-- RIGHT -->
+<div style="width:50%">
+<h2>PROJECT DETAILS</h2>
+`
+
+Object.keys(project).forEach(k=>{
+if(["Room","Section","Item","Value","Walls"].includes(k)) return;
+
+let val = project[k] || ""
+content += `<p><b>${k}:</b> ${val}</p>`
+})
+
+content += `</div></div>`
+
+/* ---------------- INSIGHTS ---------------- */
+content += `<div class="section page"><h2>Insights(Design,Cost,Execution)</h2>`
+
+/* SOCIETY */
+content += `<h3>Society & Work Environment</h3>
+<table>
+<tr><th>SNo</th><th>Insight</th><th>Type</th><th>Category</th><th>Remarks</th></tr>`
+
+societyInsights.forEach((txt,i)=>{
+let meta = classifyInsight(txt)
+
+content += `<tr>
+<td>${i+1}</td>
+<td>${txt}</td>
+<td>${meta.type}</td>
+<td>${meta.category}</td>
+<td></td>
+</tr>`
+})
+
+content += `</table>`
+
+/* ROOM WISE */
+rooms.forEach((roomName, index)=>{
+
+let key = roomName.trim()
+if(!key) return
+
+content += `<h3>${key}</h3>
+<table>
+<tr><th>SNo</th><th>Insight</th><th>Type</th><th>Category</th><th>Remarks</th></tr>`
+
+let arr = Array.isArray(roomInsights[key]) ? roomInsights[key] : []
+
+arr.forEach((txt,i)=>{
+let meta = classifyInsight(txt)
+
+content += `<tr>
+<td>${i+1}</td>
+<td>${txt}</td>
+<td>${meta.type}</td>
+<td>${meta.category}</td>
+<td></td>
+</tr>`
+})
+
+content += `</table>`
+})
+
+content += `</div>`
+
+/* ---------------- SOCIETY DETAILS ---------------- */
+content += `<div class="section page"><h2>SOCIETY & WORK ENVIRONMENT CONSTRAINTS</h2>`
+
+societyData.forEach(s=>{
+content += `<p><b>${s.Question}:</b> ${s.Value || ""}</p>`
+})
+
+content += `</div>`
+
+/* ---------------- ROOM MATRIX ---------------- */
+content += `<div class="section page"><h2>ROOM VALIDATION MATRIX</h2><table>
+<tr><th>Question</th>${rooms.map(r=>`<th>${r}</th>`).join("")}</tr>`
+
+let roomQs = [...new Set(matrixDataRaw.filter(x=>x.Section==="Room").map(x=>x.Item))]
+
+roomQs.forEach(q=>{
+content += `<tr><td>${q}</td>`
+
+rooms.forEach(r=>{
+let rec = matrixDataRaw.find(x =>
+(x.Room || "").toString().trim() === r &&
+x.Item === q &&
+x.Section === "Room"
+) || {}
+
+content += `<td>${rec.Value || ""}<br>
+<span style="font-size:10px">${rec.Comment || rec.Remark || rec.Comments || ""}</span></td>`
+})
+
+content += `</tr>`
+})
+
+content += `</table></div>`
+
+/* ---------------- WALL MATRIX ---------------- */
+content += `<div class="section page"><h2>WALL VALIDATION MATRIX</h2><table>
+<tr><th>Question</th>${rooms.map(r=>`<th>${r}</th>`).join("")}</tr>`
+
+let wallQs = [...new Set(matrixDataRaw.filter(x=>x.Section==="Wall").map(x=>x.Item))]
+
+wallQs.forEach(q=>{
+content += `<tr><td>${q}</td>`
+
+rooms.forEach(r=>{
+let rec = matrixDataRaw.find(x =>
+(x.Room || "").toString().trim() === r &&
+x.Item === q &&
+x.Section === "Wall"
+) || {}
+
+content += `<td>${rec.Value || ""} ${rec.Walls ? `(${rec.Walls})` : ""}
+<br><span style="font-size:10px">${rec.Comment || rec.Remark || rec.Comments || ""}</span></td>`
+})
+
+content += `</tr>`
+})
+
+content += `</table></div>`
+
+/* ---------------- MEASUREMENTS ---------------- */
+content += `<div class="section page"><h2>KEY MEASUREMENTS</h2><table>
+<tr><th>Room</th><th>Details</th></tr>`
+
+measData.forEach(m=>{
+content += `<tr><td>${m.Room || ""}</td><td>
+${Object.entries(m)
+.filter(([k,v])=>k!=="Room" && v)
+.map(([k,v])=>`<b>${k}:</b> ${v}`)
+.join("<br>")}
+</td></tr>`
+})
+
+content += `</table></div>`
+
+/* ---------------- STYLE ---------------- */
+let style = `
 <style>
 
-/* GLOBAL */
+/* RESET */
 body{
-font-family: Arial, Helvetica, sans-serif;
-font-size:11px;
-line-height:1.4;
-color:#000;
-margin:10px;
+font-family:Arial;
+font-size:13px;
+margin:0;
+padding:0;
 }
 
-/* TITLE */
-h1{
-font-size:18px;
-font-weight:700;
-margin-bottom:5px;
-}
-
-/* SECTION HEADINGS */
-h2{
-font-size:14px;
-font-weight:700;
-margin-top:12px;
-margin-bottom:6px;
-border-bottom:1px solid #000;
-padding-bottom:3px;
-text-transform:uppercase;
-}
-
-/* SUB HEADINGS */
-h3{
-font-size:12px;
-font-weight:600;
-margin-top:8px;
-margin-bottom:4px;
-}
-
-/* TEXT */
-p{
-margin:2px 0;
+/* PAGE FRAME */
+.page{
+box-sizing:border-box;
+width:100%;
+min-height:100vh;
+padding:20px;
+border:2px solid #000;
 }
 
 /* TABLE */
 table{
 width:100%;
 border-collapse:collapse;
-table-layout:fixed;
-margin-top:6px;
-}
-
-th, td{
-border:1px solid #000;
-padding:5px;
-font-size:10px;
-vertical-align:top;
-word-break:break-word;
-white-space:normal;
-line-height:1.3;
-}
-
-th{
-background:#e6e6e6;
-font-weight:700;
-}
-
-/* REPEAT HEADER */
-thead{
-display:table-header-group;
-}
-
-/* PAGE BREAK CONTROL */
-.section{
-page-break-before:always;
 margin-top:10px;
 }
 
-.section:first-child{
+th,td{
+border:1px solid #000;
+padding:6px;
+font-size:12px;
+vertical-align:top;
+}
+
+/* HEADINGS */
+h1{font-size:22px}
+h2{font-size:16px}
+h3{font-size:14px}
+
+/* PAGE BREAK FIX */
+.section{
+page-break-before:always;
+}
+
+.section:first-of-type{
 page-break-before:auto !important;
-}
-
-/* AVOID ROW BREAK */
-tr{
-page-break-inside:avoid;
-}
-
-/* REMOVE EXTRA SPACE */
-div{
-margin:0;
-padding:0;
 }
 
 </style>
 `
 
-// ---------------- PRINT WINDOW ----------------
+/* ---------------- PRINT ---------------- */
+let win = window.open("")
 
-let win = window.open('', '', 'height=700,width=1000')
+if(!win){
+alert("Popup blocked. Please allow popups.")
+return
+}
 
-win.document.write(`
-<html>
-<head>${styles}</head>
-<body>${content}</body>
-</html>
-`)
-
+win.document.write(`<html><head>${style}</head><body>${content}</body></html>`)
 win.document.close()
 
-// ---------------- PRINT ----------------
-
-setTimeout(()=>{
-win.print()
-},400)
+setTimeout(()=>win.print(),500)
 
 }
  
@@ -1747,7 +1953,8 @@ reader.onload=function(e){
 let wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
 
 matrixDataRaw=XLSX.utils.sheet_to_json(wb.Sheets["Validation Data"]||{});
-measData=XLSX.utils.sheet_to_json(wb.Sheets["Measurements"]||{});
+measData = XLSX.utils.sheet_to_json(wb.Sheets["Room Measurements"] || {});
+wallMeasData = XLSX.utils.sheet_to_json(wb.Sheets["Wall Measurements"] || []);
 societyData=XLSX.utils.sheet_to_json(wb.Sheets["Society Constraints"]||{});
 
 let rooms=getUnique(matrixDataRaw,"Room");
@@ -1830,7 +2037,7 @@ html += `
 
 if(societyData.length){
 
-html += `<div class="section">
+html += `<div class="section page">
 <h2>SOCIETY AND WORK ENVIRONMENT</h2>`;
 
 let grouped = {};
@@ -1866,12 +2073,12 @@ rooms.forEach(r => roomInsights[r] = []);
 
 autoInsights.forEach(i=>{
 if(i.room === "All") societyInsights.push(i.text);
-else roomInsights[i.room].push(i.text);
+else roomInsights[i.room.trim()].push(i.text);
 });
 
 /* MATRIX */
 /* -------- ROOM MATRIX -------- */
-html+='<div class="section"><h2>Room Validation Matrix</h2><table><thead><tr><th>Question</th>';
+html+='<div class="section page"><h2>Room Validation Matrix</h2><table><thead><tr><th>Question</th>';
 rooms.forEach(r=>html+=`<th>${r}</th>`);
 html+='</tr></thead><tbody>';
 
@@ -1906,7 +2113,7 @@ html+='</tr>';
 html+='</tbody></table></div>';
 
 /* -------- WALL MATRIX -------- */
-html+='<div class="section"><h2>Wall Validation Matrix</h2><table><thead><tr><th>Question</th>';
+html+='<div class="section page"><h2>Wall Validation Matrix</h2><table><thead><tr><th>Question</th>';
 rooms.forEach(r=>html+=`<th>${r}</th>`);
 html+='</tr></thead><tbody>';
 
@@ -1993,14 +2200,15 @@ return html;
 html += createInsightTable("Society Insights", societyInsights, "societyTable");
 
 /* ROOMS */
-rooms.forEach((room, index)=>{
+rooms.forEach((rm, index)=>{
+ if(typeof rm !== "string") return;
 
 html += `
 <div class="collapsible-header" onclick="toggleSection(this)">
-${room} Insights
+${rm} Insights
 </div>
 <div class="collapsible-content">
-${createInsightTable("", roomInsights[room], `roomTable_${index}`)}
+${createInsightTable("", roomInsights[rm], `roomTable_${index}`)}
 </div>
 `
 
@@ -2022,6 +2230,36 @@ reader.readAsArrayBuffer(file);
 document.addEventListener("DOMContentLoaded",()=>{
 bindEvents();
 populateReportList();
+let dropZone = document.getElementById("dropZone")
+let fileInput = document.getElementById("fileInput")
+
+if(dropZone && fileInput){
+
+dropZone.onclick = ()=> fileInput.click()
+
+dropZone.ondragover = (e)=>{
+e.preventDefault()
+dropZone.style.background="#eef2ff"
+}
+
+dropZone.ondragleave = ()=>{
+dropZone.style.background="#f8faff"
+}
+
+dropZone.ondrop = (e)=>{
+e.preventDefault()
+dropZone.style.background="#f8faff"
+
+let dt = new DataTransfer()
+dt.items.add(e.dataTransfer.files[0])
+fileInput.files = dt.files
+processFile()
+}
+
+}
+
+
+ 
 document.addEventListener("focusin", function(e){
 if(e.target.matches("[contenteditable].editable-placeholder")){
 if(e.target.innerText.trim() === "Manual input required"){
