@@ -1563,7 +1563,60 @@ function getValidationSummaryFromHTML(){
 
     return data
 }
+function getInsightsFromHTML(){
 
+    let result = {
+        society: [],
+        rooms: {}
+    }
+
+    /* ---------------- SOCIETY TABLE ---------------- */
+    let societyTable = document.getElementById("societyTable")
+
+    if(societyTable){
+
+        for(let i=1;i<societyTable.rows.length;i++){
+
+            let row = societyTable.rows[i]
+
+            result.society.push({
+                text: row.cells[1].innerText.trim(),
+                type: row.cells[2].innerText.trim(),
+                category: row.cells[3].innerText.trim(),
+                remarks: row.cells[4].innerText.trim()
+            })
+        }
+    }
+
+    /* ---------------- ROOM TABLES ---------------- */
+    let roomTables = document.querySelectorAll("table[id^='roomTable_']")
+
+    roomTables.forEach((table, index)=>{
+
+        let roomName = table.closest(".collapsible-content")
+                            ?.previousElementSibling?.innerText
+                            ?.replace(" Insights","")
+                            ?.trim()
+
+        if(!roomName) return
+
+        result.rooms[roomName] = []
+
+        for(let i=1;i<table.rows.length;i++){
+
+            let row = table.rows[i]
+
+            result.rooms[roomName].push({
+                text: row.cells[1].innerText.trim(),
+                type: row.cells[2].innerText.trim(),
+                category: row.cells[3].innerText.trim(),
+                remarks: row.cells[4].innerText.trim()
+            })
+        }
+    })
+
+    return result
+}
  
 function downloadPDF(){
 
@@ -1577,30 +1630,10 @@ matrixDataRaw
 /* HARD SANITY */
 rooms = rooms.filter(r => typeof r === "string" && r.trim() !== "")
 
-/* ---------------- RUN RULE ENGINE ---------------- */
-let autoInsights = runRuleEngine(rooms)
+let finalInsights = getInsightsFromHTML()
 
-/* ---------------- BUILD INSIGHT MAP ---------------- */
-let roomInsights = {}
-let societyInsights = []
-
-rooms.forEach(r=>{
-roomInsights[r.trim()] = []
-})
-
-autoInsights.forEach(i=>{
-if(i.room === "All"){
-societyInsights.push(i.text)
-}else{
-let key = (i.room || "").toString().trim()
-
-if(!roomInsights[key]){
-roomInsights[key] = []
-}
-
-roomInsights[key].push(i.text)
-}
-})
+let societyInsights = finalInsights.society
+let roomInsights = finalInsights.rooms
 /* ---------------- BUILD HTML ---------------- */
 let content = ""
 /* ---------------- PROJECT DETAILS ---------------- */
@@ -1713,15 +1746,14 @@ content += `<h3>Society & Work Environment</h3>
 <table>
 <tr><th>SNo</th><th>Insight</th><th>Type</th><th>Category</th><th>Remarks</th></tr>`
 
-societyInsights.forEach((txt,i)=>{
-let meta = classifyInsight(txt)
+societyInsights.forEach((row,i)=>{
 
 content += `<tr>
 <td>${i+1}</td>
-<td>${txt}</td>
-<td>${meta.type}</td>
-<td>${meta.category}</td>
-<td></td>
+<td>${row.text}</td>
+<td>${row.type}</td>
+<td>${row.category}</td>
+<td>${row.remarks}</td>
 </tr>`
 })
 
@@ -1739,15 +1771,14 @@ content += `<h3>${key}</h3>
 
 let arr = Array.isArray(roomInsights[key]) ? roomInsights[key] : []
 
-arr.forEach((txt,i)=>{
-let meta = classifyInsight(txt)
+arr.forEach((row,i)=>{
 
 content += `<tr>
 <td>${i+1}</td>
-<td>${txt}</td>
-<td>${meta.type}</td>
-<td>${meta.category}</td>
-<td></td>
+<td>${row.text}</td>
+<td>${row.type}</td>
+<td>${row.category}</td>
+<td>${row.remarks}</td>
 </tr>`
 })
 
