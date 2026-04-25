@@ -2016,7 +2016,9 @@ measData = XLSX.utils.sheet_to_json(wb.Sheets["Room Measurements"] || {});
 wallMeasData = XLSX.utils.sheet_to_json(wb.Sheets["Wall Measurements"] || []);
 societyData=XLSX.utils.sheet_to_json(wb.Sheets["Society Constraints"]||{});
 
-let rooms=getUnique(matrixDataRaw,"Room");
+let rooms = getUnique(matrixDataRaw,"Room")
+.map(r => (r || "").toString().trim())
+.filter(r => r && r !== "undefined" && r !== "null");
 
 let html = `
 <div id="reportContainer">
@@ -2076,10 +2078,14 @@ html += `
 <h2>PROJECT DETAILS</h2>
 `;
 
-let projectData = matrixDataRaw[0] || {};
+let projectData = Array.isArray(matrixDataRaw) && matrixDataRaw.length > 0 
+    ? matrixDataRaw[0] 
+    : {}
 for(let k in projectData){
 if(!["Room","Section","Item","Value","Walls"].includes(k)){
-let val = projectData[k] || "Manual input required";
+let val = (projectData[k] !== undefined && projectData[k] !== null && projectData[k] !== "")
+    ? projectData[k]
+    : "Manual input required";
 
 html += `<p><b>${k}:</b> 
 <span contenteditable="true" class="${projectData[k] ? "" : "editable-placeholder"}">
@@ -2131,8 +2137,24 @@ let societyInsights = [];
 rooms.forEach(r => roomInsights[r] = []);
 
 autoInsights.forEach(i=>{
-if(i.room === "All") societyInsights.push(i.text);
-else roomInsights[i.room.trim()].push(i.text);
+
+    if(i.room === "All"){
+        societyInsights.push(i.text)
+        return
+    }
+
+    let key = (i.room || "").toString().trim()
+
+    // ❌ skip bad data
+    if(!key) return
+
+    // 🔥 CRITICAL FIX
+    if(!roomInsights[key]){
+        roomInsights[key] = []
+    }
+
+    roomInsights[key].push(i.text)
+
 });
 
 /* MATRIX */
