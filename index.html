@@ -1540,6 +1540,30 @@ norm(r.Parameter) === norm(type)
 return Number(rec?.Value) || 0
 
 }
+
+function getValidationSummaryFromHTML(){
+
+    let container = document.getElementById("reportPreview")
+    if(!container) return {}
+
+    let data = {}
+
+    let rows = container.querySelectorAll("p")
+
+    rows.forEach(p=>{
+
+        let label = p.querySelector("b")?.innerText.replace(":", "").trim()
+        let valueEl = p.querySelector("[contenteditable]")
+
+        if(label && valueEl){
+            data[label] = valueEl.innerText.trim()
+        }
+
+    })
+
+    return data
+}
+
  
 function downloadPDF(){
 
@@ -1645,18 +1669,22 @@ let diff = end - start
 duration = Math.floor(diff / 60000) + " mins"
 }
 
+let vs = getValidationSummaryFromHTML()
+
 content += `<div class="section page" style="display:flex; gap:20px">
 
 <!-- LEFT -->
 <div style="width:50%">
 <h2>VALIDATION SUMMARY</h2>
 
-<p><b>Validator Name:</b> </p>
-<p><b>Validator Email:</b> </p>
-<p><b>ID Name:</b> </p>
-<p><b>ID Email:</b> </p>
-<p><b>BMD Name:</b> </p>
-<p><b>BMD Email:</b> </p>
+<p><b>Validator Name:</b> ${vs["Validator Name"] || ""}</p>
+<p><b>Validator Email:</b> ${vs["Validator Email"] || ""}</p>
+
+<p><b>ID Name:</b> ${vs["ID Name"] || ""}</p>
+<p><b>ID Email:</b> ${vs["ID Email"] || ""}</p>
+
+<p><b>BMD Name:</b> ${vs["BMD Name"] || ""}</p>
+<p><b>BMD Email:</b> ${vs["BMD Email"] || ""}</p>
 
 <p><b>Start Time:</b> ${startTime}</p>
 <p><b>End Time:</b> ${endTime}</p>
