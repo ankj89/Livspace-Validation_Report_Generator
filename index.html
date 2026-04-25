@@ -679,7 +679,7 @@ output:()=> "Existing wiring does not have sufficient capacity to take additiona
 {
 id:"PLUMBING",
 type:"room",
-condition:{itemIncludes:"plumbing lines",valueEquals:"yes"},
+condition:{itemIncludes:"issues with existing plumbing lines",valueEquals:"yes"},
 output:()=> "Existing plumbing lines are not in good condition. Recommend replacement/new plumbing"
 },
 {
@@ -1279,14 +1279,21 @@ RULES.forEach(rule=>{
 if(rule.type==="wall"||rule.type==="room"){
 rooms.forEach((rm, index)=>{
  if(typeof rm !== "string") return;
-let matches = matrixDataRaw.filter(x=>
-x.Room===rm &&
-norm(x.Item).includes(norm(rule.condition.itemIncludes)) &&
-(
-!rule.condition.valueEquals ||
-norm(x.Value||"").includes(norm(rule.condition.valueEquals))
-)
-);
+
+ 
+let matches = matrixDataRaw.filter(x=>{
+
+    if(x.Room !== rm) return false
+
+    if(!norm(x.Item).includes(norm(rule.condition.itemIncludes))) return false
+
+    // 🔥 STRICT VALUE CHECK PER ROW
+    if(rule.condition.valueEquals){
+        return norm(x.Value || "") === norm(rule.condition.valueEquals)
+    }
+
+    return true
+});
 
 /* 🔥 REMOVE DUPLICATE WALL ENTRIES */
 let uniqueMap = new Map();
