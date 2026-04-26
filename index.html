@@ -713,9 +713,6 @@ output:(s)=> s.Value ? `Material/specification restrictions by society/builder: 
 {
 id:"FLOOR_BAD",
 type:"room",
- {
-id:"MATERIAL",
-type:"society",
   meta:{
     type:["Design Input","Cost Input"],
     category:["Civil"]
@@ -1089,7 +1086,7 @@ type:"wall",
 } ,
 condition:{itemIncludes:"ac point",valueEquals:"no"},
 output:()=> "AC point not available. Lowside works required. Discuss with Cx"
-}
+},
  
 {
 id:"AC_PELMET",
@@ -1181,20 +1178,7 @@ return `AC wall space constraint, pocket maybe required in false ceiling on: ${i
 
 }
 },
-output:(matches)=>{
 
-    // 🔥 extract unique elevations
-    let elevs = [...new Set(
-        matches
-        .map(x => (x.Wall || "").toString().trim())
-        .filter(e => e)
-    )]
-
-    if(!elevs.length) return null
-
-    return `Sprinkler/utility/services line present on ${elevs.join(", ")}. Recommend pelmet/boxing for concealing with 6" x 6" cutout for sprinkler nozzel. Location of sprinkler point to be considered while deciding AC placement on these walls`
-}
-},
  
 {
 id:"SWITCH_SOCKET_BAD",
@@ -1539,7 +1523,7 @@ return null;
 {
 id:"WALL_UNDULATION",
 type:"measurement",
-type:"measurement",
+
   meta:{
     type:["Cost Input"],
     category:["Civil"]
@@ -1629,7 +1613,12 @@ uniqueMap.set(key, x);
 matches = Array.from(uniqueMap.values());
 if(matches.length){
 let res=rule.output(matches);
-if(res) insights.push({room: rm.trim(), text: res});
+if(res)insights.push({
+room: rm.trim(),
+text: res,
+type: rule.meta?.type || [],
+category: rule.meta?.category || []
+}); 
 }
 });
 }
@@ -1652,7 +1641,12 @@ try{
     console.error("Rule failed:", rule.id, e);
 }
  
-if(res) insights.push({room:m.Room,text:res});
+if(res) insights.push({
+room:m.Room,
+text:res,
+type: rule.meta?.type || [],
+category: rule.meta?.category || []
+});
 });
 }
 
@@ -1675,7 +1669,12 @@ if(actual !== expected){
 }
 /* RUN RULE */
 let res = rule.output(s);
-if(res) insights.push({room:"All",text:res});
+if(res) insights.push({
+room:"All",
+text:res,
+type: rule.meta?.type || [],
+category: rule.meta?.category || []
+});
 
 });
 }
@@ -2476,7 +2475,7 @@ rooms.forEach(r => roomInsights[r] = []);
 autoInsights.forEach(i=>{
 
     if(i.room === "All"){
-        societyInsights.push(i.text)
+        societyInsights.push(i)
         return
     }
 
@@ -2490,7 +2489,7 @@ autoInsights.forEach(i=>{
         roomInsights[key] = []
     }
 
-    roomInsights[key].push(i.text)
+    roomInsights[key].push(i)
 
 });
 
@@ -2591,9 +2590,11 @@ let rows = dataArr.length || 1
 
 for(let i=0;i<rows;i++){
 
-let txt = dataArr[i] || "";
-<td>${row.type.join(", ")}</td>
-<td>${row.category.join(", ")}</td>
+let item = dataArr[i] || {};
+let txt = item.text || "";
+let typeText = (item.type || []).join(", ");
+let categoryText = (item.category || []).join(", ");
+
 
 
 /* HTML */
@@ -2603,8 +2604,8 @@ ${i+1}
 <span onclick="deleteInsightRow(this)" style="color:red;cursor:pointer;margin-left:6px;">❌</span>
 </td>
 <td contenteditable="true">${txt}</td>
-<td contenteditable="true">${meta.type}</td>
-<td contenteditable="true">${meta.category}</td>
+<td contenteditable="true">${typeText}</td>
+<td contenteditable="true">${categoryText}</td>
 <td contenteditable="true" style="min-width:200px"></td>
 </tr>`;
 
