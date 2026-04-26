@@ -1049,7 +1049,7 @@ type:"wall",
  meta:{
     type:["Design Input","Execution Input"],
     category:["Civil"]
-} 
+} ,
 condition:{itemIncludes:"seepage",valueEquals:"yes"},
 output:(m)=>`Seepage observed on walls (${getWallsFromRoom(m)}). Waterproofing/Damproofing required before start of works(under Cx scope)`
 },
@@ -1876,10 +1876,10 @@ function getValidationSummaryFromHTML(){
     rows.forEach(p=>{
 
         let label = p.querySelector("b")?.innerText.replace(":", "").trim()
-        let valueEl = p.querySelector("[contenteditable]")
+       let valueEl = p.querySelector("[contenteditable], input")
 
         if(label && valueEl){
-            data[label] = valueEl.innerText.trim()
+     data[label] = valueEl.value ? valueEl.value.trim() : valueEl.innerText.trim()
         }
 
     })
@@ -2410,11 +2410,25 @@ let val = (projectData[k] !== undefined && projectData[k] !== null && projectDat
     ? projectData[k]
     : "Manual input required";
 
+if(k.toLowerCase().includes("floor")){
+html += `<p><b>${k}:</b> 
+<input 
+type="number"
+value="${val !== "Manual input required" ? val : ""}"
+oninput="this.value = this.value.replace(/[^0-9]/g,'')"
+style="width:100%; padding:4px;"
+>
+</p>`;
+}
+else{
 html += `<p><b>${k}:</b> 
 <span contenteditable="true" class="${projectData[k] ? "" : "editable-placeholder"}">
 ${val}
 </span>
 </p>`;
+}
+
+ 
 }
 }
 
