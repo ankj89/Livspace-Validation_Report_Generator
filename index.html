@@ -1327,13 +1327,24 @@ output:(v,m)=>{
 
 /* ---------------- BASE HEIGHT ---------------- */
 
-let fcVals = [m.fc1,m.fc2,m.fc3,m.fc4,m.fc5]
-.map(Number)
-.filter(x=>x>0)
+let fcMap = [
+    {key:"fc1", label:"Center"},
+    {key:"fc2", label:"Corner 1"},
+    {key:"fc3", label:"Corner 2"},
+    {key:"fc4", label:"Corner 3"},
+    {key:"fc5", label:"Corner 4"}
+];
 
-if(!fcVals.length) return null
+let fcData = fcMap
+.map(f => ({
+    label: f.label,
+    value: Number(m[f.key]) || 0
+}))
+.filter(x => x.value > 0);
 
-let fcMin = Math.min(...fcVals)
+if(!fcData.length) return null;
+
+let fcMin = Math.min(...fcData.map(x => x.value));
 
 let beam = Number(m.beamFloor) || 0
 let sprinkler = Number(m.sprinklerFloor) || 0
