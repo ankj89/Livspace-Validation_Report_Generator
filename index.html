@@ -1313,33 +1313,15 @@ return issues.join(" | ")
 },
  
 {
-id:"CEILING_VARIATION",
-type:"measurement",
-
- meta:{
-    type:["Design Input","Cost Input"],
-    category:["False Ceiling","Civil"]
-},
-condition:{fields:["fc1","fc2","fc3","fc4","fc5"]},
-output:(v)=>{
-let nums=v.map(Number).filter(x=>x>0);
-if(nums.length<2) return null;
-
-let diff=Math.max(...nums)-Math.min(...nums);
-if(diff>20) return "True ceiling level (corners and center) deviation of > 20 mm observed across. Only flat false ceiling is suggested or keep the ceiling exposed. No peripheral ceiling to be done";
-
-return null;
-}
-},
-
-{
 id:"CLEAR_HEIGHT_ADV",
 type:"measurement",
-  meta:{
+
+meta:{
     type:["Design Input","Cost Input"],
     category:["False Ceiling"]
 },
-condition:{fields:["beamFloor","sprinklerFloor","fc1","fc2","fc3","fc4","fc5"]},
+
+condition:{fields:["beamFloor","sprinklerFloor","utilityFloor","fc1","fc2","fc3","fc4","fc5"]},
 
 output:(v,m)=>{
 
@@ -1355,6 +1337,7 @@ let fcMin = Math.min(...fcVals)
 
 let beam = Number(m.beamFloor) || 0
 let sprinkler = Number(m.sprinklerFloor) || 0
+let utility = Number(m.utilityFloor) || 0
 
 /* ---------------- CONSTANTS ---------------- */
 
@@ -1364,15 +1347,13 @@ let serviceBuffer = 50
 
 /* ---------------- NO CONSTRAINT CASE ---------------- */
 
-if(!beam && !sprinkler){
+if(!beam && !sprinkler && !utility){
 
     let msgs = []
 
     msgs.push(`Clear heights (FFL reference):`)
     msgs.push(`Slab (FC): ${fcMin} mm`)
-
     msgs.push(`False ceiling drop: 150 mm`)
-
     msgs.push(`Recommendation: False ceiling can be designed. No structural or service constraints`)
 
     return msgs.map(m => `• ${m}`).join("<br>")
@@ -1386,6 +1367,7 @@ let sprinklerAdj = sprinkler > 0 ? (sprinkler - serviceBuffer) : 0
 
 let beamValid = beam > target
 let sprinklerValid = sprinklerAdj > target
+let utilityValid = utility > target
 
 /* ---------------- MAX DROP ---------------- */
 
@@ -1397,7 +1379,7 @@ maxDrop = Math.min(maxDrop, 300)
 let minDrop = minStandardDrop
 let controlling = null
 
-if(beamValid || sprinklerValid){
+if(beamValid || sprinklerValid || utilityValid){
 
     let candidates = []
 
@@ -1406,13 +1388,16 @@ if(beamValid || sprinklerValid){
     }
 
     if(sprinklerValid){
-        candidates.push({type:"service", value:sprinklerAdj})
+        candidates.push({type:"sprinkler", value:sprinklerAdj})
+    }
+
+    if(utilityValid){
+        candidates.push({type:"utility", value:utility})
     }
 
     let ctrl = candidates.reduce((a,b)=> a.value > b.value ? a : b)
 
     controlling = ctrl.type
-
     minDrop = fcMin - ctrl.value
 }
 
@@ -1422,12 +1407,18 @@ minDrop = Math.min(minDrop, 300)
 
 let recommendation = ""
 
-if(beamValid && sprinklerValid){
+let validCount = [beamValid, sprinklerValid, utilityValid].filter(x=>x).length
+
+if(validCount >= 2){
 
     if(controlling === "beam"){
-        recommendation = `At minimum drop, intermediary beam can be concealed. At maximum drop both beam & utilities can be concealed. In both scenarios, clear height will be max 8ft `
-    }else{
-        recommendation = `At minimum drop, services/utilities can be concealed. At maximum drop both beam & utilities can be concealed. In both scenarios, clear height will be max 8ft`
+        recommendation = `At minimum drop, intermediary beam can be concealed. At maximum drop beam, sprinkler & utilities can be concealed. In both scenarios, clear height will be max 8 ft`
+    }
+    else if(controlling === "sprinkler"){
+        recommendation = `At minimum drop, services/sprinkler can be concealed. At maximum drop beam, sprinkler & utilities can be concealed. In both scenarios, clear height will be max 8 ft`
+    }
+    else{
+        recommendation = `At minimum drop, other utilities (HVAC/VRV etc.) can be concealed. At maximum drop beam, sprinkler & utilities can be concealed. In both scenarios, clear height will be max 8 ft`
     }
 
 }
@@ -1436,6 +1427,9 @@ else if(beamValid){
 }
 else if(sprinklerValid){
     recommendation = `Services/sprinkler can be accommodated within ceiling while maintaining minimum 8 ft clear height`
+}
+else if(utilityValid){
+    recommendation = `Other services/utilities (HVAC/VRV etc.) can be accommodated within ceiling while maintaining minimum 8 ft clear height`
 }
 
 /* ---------------- NON-CONCEAL CASE ---------------- */
@@ -1448,6 +1442,10 @@ if(beam > 0 && !beamValid){
 
 if(sprinkler > 0 && !sprinklerValid){
     constraints.push(`Services/sprinkler cannot be concealed without reducing clear height below 8 ft → design false ceiling accordingly`)
+}
+
+if(utility > 0 && !utilityValid){
+    constraints.push(`Other services/utilities cannot be concealed without reducing clear height below 8 ft → design false ceiling accordingly`)
 }
 
 /* ---------------- COST ---------------- */
@@ -1469,6 +1467,10 @@ if(sprinkler > 0){
     msgs.push(`Services/sprinkler: ${sprinkler} mm`)
 }
 
+if(utility > 0){
+    msgs.push(`Other services/utilities: ${utility} mm`)
+}
+
 if(maxDrop <= 0){
     msgs.push(`False ceiling not feasible while maintaining 8 ft clear height`)
 }else{
@@ -1484,7 +1486,7 @@ if(constraints.length){
 }
 
 if(highDrop){
-    msgs.push(`Please note: Any drop exceeding 150 mm there will additonal cost over MRC rate`)
+    msgs.push(`Please note: Any drop exceeding 150 mm there will additional cost over MRC rate`)
 }
 
 /* ---------------- FINAL ---------------- */
