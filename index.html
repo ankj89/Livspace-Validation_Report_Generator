@@ -2211,9 +2211,6 @@ table{
 width:100%;
 border-collapse:collapse;
 margin-top:10px;
-
-/* 🔥 CRITICAL FIX */
-table-layout: fixed;
 }
 
 th,td{
@@ -2221,35 +2218,42 @@ border:1px solid #000;
 padding:6px;
 font-size:12px;
 vertical-align:top;
+}
 
-/* 🔥 CRITICAL FIX */
+/* 🔥 APPLY ONLY TO INSIGHTS TABLE */
+.insight-table{
+table-layout: fixed;
+}
+
+.insight-table th,
+.insight-table td{
 min-width:0;
 word-break: break-word;
 white-space: normal;
 }
 
 /* COLUMN WIDTHS */
-table th:nth-child(1),
-table td:nth-child(1){width:5%;}
+.insight-table th:nth-child(1),
+.insight-table td:nth-child(1){width:5%;}
 
-table th:nth-child(2),
-table td:nth-child(2){width:40%;}
+.insight-table th:nth-child(2),
+.insight-table td:nth-child(2){width:40%;}
 
-table th:nth-child(3),
-table td:nth-child(3){width:15%;}
+.insight-table th:nth-child(3),
+.insight-table td:nth-child(3){width:15%;}
 
-table th:nth-child(4),
-table td:nth-child(4){width:15%;}
+.insight-table th:nth-child(4),
+.insight-table td:nth-child(4){width:15%;}
 
-table th:nth-child(5),
-table td:nth-child(5){width:25%;}
+.insight-table th:nth-child(5),
+.insight-table td:nth-child(5){width:25%;}
 
 /* HEADINGS */
 h1{font-size:22px}
 h2{font-size:16px}
 h3{font-size:14px}
 
-/* PAGE BREAK FIX */
+/* PAGE BREAK */
 .section{
 page-break-before:always;
 }
@@ -2259,7 +2263,7 @@ page-break-before:auto !important;
 }
 
 </style>
-`
+`;
 
 /* ---------------- PRINT ---------------- */
 let win = window.open("")
@@ -2600,7 +2604,7 @@ let html = `<div class="section">
 
 <button onclick="addInsightRow('${tableId}')">+ Add Row</button>
 
-<table id="${tableId}">
+<table id="${tableId}" class="insight-table">
 <thead>
 <tr>
 <th>SNo</th>
