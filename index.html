@@ -1952,6 +1952,35 @@ function getInsightsFromHTML(){
 
     return result
 }
+
+const MEASUREMENT_LABELS = {
+
+fc1: "Ceiling Height - Center",
+fc2: "Ceiling Height - Corner 1",
+fc3: "Ceiling Height - Corner 2",
+fc4: "Ceiling Height - Corner 3",
+fc5: "Ceiling Height - Corner 4",
+
+beamFloor: "Beam Bottom Level",
+sprinklerFloor: "Sprinkler Level",
+utilityFloor: "Utility Level",
+
+doorheight: "Door Height",
+doorwidth: "Door Width",
+
+wp1_c1: "Wall Pair 1 - Corner 1",
+wp1_mid: "Wall Pair 1 - Middle",
+wp1_c2: "Wall Pair 1 - Corner 2",
+
+wp2_c1: "Wall Pair 2 - Corner 1",
+wp2_mid: "Wall Pair 2 - Middle",
+wp2_c2: "Wall Pair 2 - Corner 2",
+
+Validation_Start: "Validation Start Time",
+Validation_End: "Validation End Time"
+
+};
+
  
 function downloadPDF(){
 
@@ -2182,16 +2211,97 @@ content += `</tr>`
 content += `</table></div>`
 
 /* ---------------- MEASUREMENTS ---------------- */
-content += `<div class="section page"><h2>KEY MEASUREMENTS</h2><table>
+/* ---------------- MEASUREMENTS (UPGRADED) ---------------- */
+
+content += `<div class="section page">
+<h2>KEY MEASUREMENTS</h2>
+<table>
 <tr><th>Room</th><th>Details</th></tr>`
 
-measData.forEach(m=>{
-content += `<tr><td>${m.Room || ""}</td><td>
-${Object.entries(m)
-.filter(([k,v])=>k!=="Room" && v)
-.map(([k,v])=>`<b>${k}:</b> ${v}`)
-.join("<br>")}
-</td></tr>`
+rooms.forEach(room => {
+
+let m = measData.find(x => x.Room === room) || {}
+
+let details = []
+
+/* ---------------- CEILING HEIGHTS ---------------- */
+let fcMap = [
+    {key:"fc1", label:"Center"},
+    {key:"fc2", label:"Corner 1"},
+    {key:"fc3", label:"Corner 2"},
+    {key:"fc4", label:"Corner 3"},
+    {key:"fc5", label:"Corner 4"}
+]
+
+let fcData = fcMap
+.map(f => ({
+    label: f.label,
+    value: Number(m[f.key]) || 0
+}))
+.filter(x => x.value > 0)
+
+if(fcData.length){
+    details.push(`<b>Ceiling Heights (FFL):</b>`)
+    fcData.forEach(x=>{
+        details.push(`${x.label}: ${x.value} mm`)
+    })
+}
+
+/* ---------------- SERVICES ---------------- */
+if(m.beamFloor) details.push(`<b>Beam:</b> ${m.beamFloor} mm`)
+if(m.sprinklerFloor) details.push(`<b>Sprinkler:</b> ${m.sprinklerFloor} mm`)
+if(m.utilityFloor) details.push(`<b>Other Utility:</b> ${m.utilityFloor} mm`)
+
+/* ---------------- WALL → ROOM DERIVATION ---------------- */
+
+let elevs = getElevations(room)
+
+/* helper */
+function avg(vals){
+if(!vals.length) return 0
+return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
+}
+
+if(elevs.length >= 4){
+
+let e1 = elevs[0]
+let e2 = elevs[1]
+let e3 = elevs[2]
+let e4 = elevs[3]
+
+let pair1 = []
+let pair2 = []
+
+wallMeasData.forEach(r=>{
+if(r.Room !== room) return
+
+if(r.Elevation === e1 || r.Elevation === e3){
+pair1.push(Number(r.Value))
+}
+
+if(r.Elevation === e2 || r.Elevation === e4){
+pair2.push(Number(r.Value))
+}
+})
+
+let avg1 = avg(pair1.filter(x=>x>0))
+let avg2 = avg(pair2.filter(x=>x>0))
+
+if(avg1) details.push(`<b>${e1} ↔ ${e3}:</b> ${avg1} mm`)
+if(avg2) details.push(`<b>${e2} ↔ ${e4}:</b> ${avg2} mm`)
+}
+
+/* ---------------- DOOR ---------------- */
+if(m.doorheight && m.doorwidth){
+details.push(`<b>Door Opening:</b> ${m.doorheight} x ${m.doorwidth} mm`)
+}
+
+/* ---------------- FINAL ---------------- */
+content += `<tr>
+<td>${room}</td>
+<td>${details.join("<br>")}</td>
+</tr>`
+
 })
 
 content += `</table></div>`
