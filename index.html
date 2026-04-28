@@ -2241,16 +2241,16 @@ let fcData = fcMap
 .filter(x => x.value > 0)
 
 if(fcData.length){
-    details.push(`<b>Ceiling Heights (FFL):</b>`)
+    details.push(`<b>FFL to True Ceiling heights - center and 4 corners:</b>`)
     fcData.forEach(x=>{
         details.push(`${x.label}: ${x.value} mm`)
     })
 }
 
 /* ---------------- SERVICES ---------------- */
-if(m.beamFloor) details.push(`<b>Beam:</b> ${m.beamFloor} mm`)
-if(m.sprinklerFloor) details.push(`<b>Sprinkler:</b> ${m.sprinklerFloor} mm`)
-if(m.utilityFloor) details.push(`<b>Other Utility:</b> ${m.utilityFloor} mm`)
+if(m.beamFloor) details.push(`<b>Beam bottom to FFL:</b> ${m.beamFloor} mm`)
+if(m.sprinklerFloor) details.push(`<b>Sprinkler bottom to FFL:</b> ${m.sprinklerFloor} mm`)
+if(m.utilityFloor) details.push(`<b>Other Utility bottom to FFL:</b> ${m.utilityFloor} mm`)
 
 /* ---------------- WALL → ROOM DERIVATION ---------------- */
 
@@ -2287,13 +2287,13 @@ pair2.push(Number(r.Value))
 let avg1 = avg(pair1.filter(x=>x>0))
 let avg2 = avg(pair2.filter(x=>x>0))
 
-if(avg1) details.push(`<b>${e1} ↔ ${e3}:</b> ${avg1} mm`)
-if(avg2) details.push(`<b>${e2} ↔ ${e4}:</b> ${avg2} mm`)
+if(avg1) details.push(`<b>Distance between ${e1} ↔ ${e3}:</b> ${avg1} mm`)
+if(avg2) details.push(`<b>Distance between ${e2} ↔ ${e4}:</b> ${avg2} mm`)
 }
 
 /* ---------------- DOOR ---------------- */
 if(m.doorheight && m.doorwidth){
-details.push(`<b>Door Opening:</b> ${m.doorheight} x ${m.doorwidth} mm`)
+details.push(`<b>Door/Max Opening in room:</b> ${m.doorheight} x ${m.doorwidth} mm`)
 }
 
 /* ---------------- FINAL ---------------- */
