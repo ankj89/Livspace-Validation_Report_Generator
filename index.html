@@ -2067,7 +2067,7 @@ content += `<div class="section page"><h2>Insights(Design,Cost,Execution)</h2>`
 
 /* SOCIETY */
 content += `<h3>Society & Work Environment</h3>
-<table>
+<table class="insight-table">
 <tr><th>SNo</th><th>Insight</th><th>Type</th><th>Category</th><th>Remarks</th></tr>`
 
 societyInsights.forEach((row,i)=>{
@@ -2090,7 +2090,7 @@ let key = roomName.trim()
 if(!key) return
 
 content += `<h3>${key}</h3>
-<table>
+<table class="insight-table">
 <tr><th>SNo</th><th>Insight</th><th>Type</th><th>Category</th><th>Remarks</th></tr>`
 
 let arr = Array.isArray(roomInsights[key]) ? roomInsights[key] : []
