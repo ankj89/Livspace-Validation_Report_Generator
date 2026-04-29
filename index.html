@@ -1028,6 +1028,21 @@ let walls = getWallsFromRoom(m);
 return `Structural cracks observed on walls (${walls}). Need suitable treatment (under Cx Scope)`;
 }
 },
+ 
+ {
+id:"OIL_WALL",
+type:"wall",
+  meta:{
+    type:["Design Input","Cost Input"],
+    category:["Civil"]
+} ,
+condition:{itemIncludes:"oil",valueEquals:"yes"},
+output:(m)=>{
+ 
+let walls = getWallsFromRoom(m);
+return `Oil stains observed on walls (${walls}). Wall treatment like replastering maybe required or use of shellac based primer. Fresh paint alone will not solve issue`;
+}
+},
 
 {
 id:"HAIRLINE",
