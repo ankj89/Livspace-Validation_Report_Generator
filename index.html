@@ -227,7 +227,29 @@ document.getElementById("reportPreview").innerHTML = "";
 saveCurrentReport();
 
 }
+function getMeasurementComparison(avg, autocad){
 
+    avg = Number(avg)
+    autocad = Number(autocad)
+
+    if(!avg || !autocad){
+        return { diff: 0, remark: "" }
+    }
+
+    let diff = Math.abs(avg - autocad)
+
+    if(diff > 50){
+        return {
+            diff,
+            remark: `Site and AutoCAD mismatch by ${diff} mm`
+        }
+    }
+
+    return {
+        diff,
+        remark: "OK"
+    }
+}
 function loadReport(reportId){
 
 let allReports = getAllReports();
@@ -2231,7 +2253,12 @@ content += `</table></div>`
 content += `<div class="section page">
 <h2>KEY MEASUREMENTS</h2>
 <table>
-<tr><th>Room</th><th>Details</th></tr>`
+<tr>
+<th>Room</th>
+<th>Site Measurement (mm)</th>
+<th>AutoCAD Measurement (mm)</th>
+<th>Remarks</th>
+</tr>`
 
 rooms.forEach(room => {
 
@@ -2312,9 +2339,33 @@ details.push(`<b>Door/Max Opening in room:</b> ${m.doorheight} x ${m.doorwidth} 
 }
 
 /* ---------------- FINAL ---------------- */
+let autoL = document.getElementById(`autoL_${room}`)?.value || "-"
+let autoB = document.getElementById(`autoB_${room}`)?.value || "-"
+
+let siteText = details.join("<br>")
+
+/* extract values again */
+let siteL = Number((siteText.match(/(\d+)\s*mm/)||[])[1] || 0)
+
+let compL = getMeasurementComparison(siteL, autoL)
+let compB = getMeasurementComparison(siteL, autoB)
+
+let remark = ""
+
+if(compL.remark === "OK" && compB.remark === "OK"){
+    remark = "OK"
+}else{
+    let msgs = []
+    if(compL.diff > 50) msgs.push(`L ${compL.diff} mm`)
+    if(compB.diff > 50) msgs.push(`B ${compB.diff} mm`)
+    remark = msgs.join(", ") || "-"
+}
+
 content += `<tr>
 <td>${room}</td>
 <td>${details.join("<br>")}</td>
+<td>L: ${autoL}<br>B: ${autoB}</td>
+<td>${remark}</td>
 </tr>`
 
 })
@@ -2465,6 +2516,8 @@ function allowManualLifting(){
 
     return floor >= 4;  // 🔥 ONLY allow if 4 or above
 } 
+
+ 
 
 function toggleSection(el){
 
@@ -2729,8 +2782,123 @@ ${comment || ""}
 html+='</tr>';
 });
 html+='</tbody></table></div>';
+/* ---------------- KEY MEASUREMENTS (NEW) ---------------- */
 
+html += `<div class="section page">
+<h2>KEY MEASUREMENTS</h2>
 
+<table id="measurementTable">
+<tr>
+<th>Room</th>
+<th>Site Measurement (mm)</th>
+<th>AutoCAD Measurement (mm)</th>
+<th>Remarks</th>
+</tr>`
+rooms.forEach(room => {
+
+let elevs = getElevations(room)
+
+/* AVG FUNCTION */
+function avg(vals){
+    if(!vals.length) return 0
+    return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
+}
+
+let siteLength = ""
+let siteBreadth = ""
+
+if(elevs.length >= 4){
+
+    let e1 = elevs[0]
+    let e2 = elevs[1]
+    let e3 = elevs[2]
+    let e4 = elevs[3]
+
+    let pair1 = []
+    let pair2 = []
+
+    wallMeasData.forEach(r=>{
+        if(r.Room !== room) return
+
+        if(r.Elevation === e1 || r.Elevation === e3){
+            pair1.push(Number(r.Value))
+        }
+
+        if(r.Elevation === e2 || r.Elevation === e4){
+            pair2.push(Number(r.Value))
+        }
+    })
+
+    siteLength = avg(pair1.filter(x=>x>0))
+    siteBreadth = avg(pair2.filter(x=>x>0))
+}
+
+/* ROW */
+html += `
+<tr>
+<td>${room}</td>
+
+<td>
+L: ${siteLength || "-"} <br>
+B: ${siteBreadth || "-"}
+</td>
+
+<td>
+L: <input type="number" id="autoL_${room}" style="width:70px"><br>
+B: <input type="number" id="autoB_${room}" style="width:70px">
+</td>
+
+<td id="remark_${room}">-</td>
+</tr>
+`
+
+})
+
+html += `</table></div>`
+
+ function updateMeasurementRemarks(){
+
+document.querySelectorAll("[id^='autoL_']").forEach(input => {
+
+    let room = input.id.replace("autoL_", "")
+
+    let autoL = document.getElementById(`autoL_${room}`).value
+    let autoB = document.getElementById(`autoB_${room}`).value
+
+    let row = input.closest("tr")
+    let text = row.cells[1].innerText
+
+    let siteL = Number((text.match(/L:\s*(\d+)/)||[])[1] || 0)
+    let siteB = Number((text.match(/B:\s*(\d+)/)||[])[1] || 0)
+
+    let compL = getMeasurementComparison(siteL, autoL)
+    let compB = getMeasurementComparison(siteB, autoB)
+
+    let remark = ""
+
+    if(compL.remark === "OK" && compB.remark === "OK"){
+        remark = "OK"
+    } else {
+        let msgs = []
+        if(compL.diff > 50) msgs.push(`Length mismatch ${compL.diff} mm`)
+        if(compB.diff > 50) msgs.push(`Breadth mismatch ${compB.diff} mm`)
+        remark = msgs.join(", ") || "-"
+    }
+
+    document.getElementById(`remark_${room}`).innerText = remark
+
+})
+}
+
+/* AUTO TRIGGER */
+setTimeout(()=>{
+document.querySelectorAll("[id^='autoL_'], [id^='autoB_']")
+.forEach(el=>{
+el.addEventListener("input", updateMeasurementRemarks)
+})
+},300)
+
+ 
 
 function createInsightTable(title, dataArr, tableId){
 
