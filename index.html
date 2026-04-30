@@ -2342,13 +2342,41 @@ details.push(`<b>Door/Max Opening in room:</b> ${m.doorheight} x ${m.doorwidth} 
 let autoL = document.getElementById(`autoL_${room}`)?.value || "-"
 let autoB = document.getElementById(`autoB_${room}`)?.value || "-"
 
-let siteText = details.join("<br>")
+let elevs = getElevations(room)
 
-/* extract values again */
-let siteL = Number((siteText.match(/(\d+)\s*mm/)||[])[1] || 0)
+let siteL = 0
+let siteB = 0
+
+if(elevs.length >= 4){
+
+let e1 = elevs[0]
+let e2 = elevs[1]
+let e3 = elevs[2]
+let e4 = elevs[3]
+
+let pair1 = []
+let pair2 = []
+
+wallMeasData.forEach(r=>{
+if(r.Room !== room) return
+
+if(r.Elevation === e1 || r.Elevation === e3){
+pair1.push(Number(r.Value))
+}
+
+if(r.Elevation === e2 || r.Elevation === e4){
+pair2.push(Number(r.Value))
+}
+})
+
+let avg = (arr)=> arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0
+
+siteL = avg(pair1.filter(x=>x>0))
+siteB = avg(pair2.filter(x=>x>0))
+}
 
 let compL = getMeasurementComparison(siteL, autoL)
-let compB = getMeasurementComparison(siteL, autoB)
+let compB = getMeasurementComparison(siteB, autoB)
 
 let remark = ""
 
@@ -2364,7 +2392,10 @@ if(compL.remark === "OK" && compB.remark === "OK"){
 content += `<tr>
 <td>${room}</td>
 <td>${details.join("<br>")}</td>
-<td>L: ${autoL}<br>B: ${autoB}</td>
+<td>
+${autoL !== "-" ? `${elevs[0]}-${elevs[2]}: ${autoL}` : "-"}<br>
+${autoB !== "-" ? `${elevs[1]}-${elevs[3]}: ${autoB}` : "-"}
+</td>
 <td>${remark}</td>
 </tr>`
 
@@ -2839,8 +2870,17 @@ html += `
 <td>${room}</td>
 
 <td>
-L: ${siteLength || "-"} <br>
-B: ${siteBreadth || "-"}
+
+${(siteLength && elevs.length >= 4) 
+? `${elevs[0]} ↔ ${elevs[2]} = ${siteLength} mm` 
+: "-"}
+
+<br>
+
+${(siteBreadth && elevs.length >= 4) 
+? `${elevs[1]} ↔ ${elevs[3]} = ${siteBreadth} mm` 
+: "-"}
+
 </td>
 
 <td>
@@ -2868,8 +2908,10 @@ document.querySelectorAll("[id^='autoL_']").forEach(input => {
     let row = input.closest("tr")
     let text = row.cells[1].innerText
 
-    let siteL = Number((text.match(/L:\s*(\d+)/)||[])[1] || 0)
-    let siteB = Number((text.match(/B:\s*(\d+)/)||[])[1] || 0)
+let matches = text.match(/=\s*(\d+)/g) || []
+
+let siteL = matches[0] ? Number(matches[0].replace(/[^0-9]/g,'')) : 0
+let siteB = matches[1] ? Number(matches[1].replace(/[^0-9]/g,'')) : 0
 
     let compL = getMeasurementComparison(siteL, autoL)
     let compB = getMeasurementComparison(siteB, autoB)
