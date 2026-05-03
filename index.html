@@ -418,9 +418,13 @@ function getSiteDimensions(room){
         wallMeasData.forEach(r=>{
 
             if(normRoom(r.Room) !== normRoom(room)) return
+let param = norm(r.Parameter)   // 🔥 use your existing norm()
 
-            let param = (r.Parameter || "").toLowerCase()
-            if(param !== "center") return   // ❌ ignore upper/soffit
+// ❌ explicitly block soffit
+if(param.includes("soffit")) return
+
+// ✅ allow only pure center
+if(param !== "center") return
 
             let val = Number(r.Value)
             if(!val) return
