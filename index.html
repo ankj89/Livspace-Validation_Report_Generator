@@ -1869,74 +1869,37 @@ XLSX.writeFile(wb, "Insights.xlsx");
 
 function getOrthogonalityInsights(room){
 
+    let m = measData.find(x => normRoom(x.Room) === normRoom(room))
+    if(!m) return []
+
+    let wp1 = [Number(m.wp1_c1), Number(m.wp1_mid), Number(m.wp1_c2)].filter(x=>!isNaN(x))
+    let wp2 = [Number(m.wp2_c1), Number(m.wp2_mid), Number(m.wp2_c2)].filter(x=>!isNaN(x))
+
     let elevs = getElevations(room)
     if(elevs.length < 4) return []
 
-    let e1 = elevs[0]
-    let e2 = elevs[1]
-    let e3 = elevs[2]
-    let e4 = elevs[3]
+    let [e1, e2, e3, e4] = elevs
 
-    function getWP(eA, eB){
-
-        let wp = { left:null, center:null, right:null }
-
-        wallMeasData.forEach(r=>{
-
-            if(normRoom(r.Room) !== normRoom(room)) return
-
-            if(
-                normElev(r.Elevation) !== normElev(eA) &&
-                normElev(r.Elevation) !== normElev(eB)
-            ) return
-
-            let param = (r.Parameter || "").toLowerCase()
-            let val = Number(r.Value)
-            if(isNaN(val)) return
-
-            if(param.includes("corner1") || param.includes("left")){
-                wp.left = val
-            }
-            else if(param.includes("corner2") || param.includes("right")){
-                wp.right = val
-            }
-            else if(param.includes("center")){
-                wp.center = val
-            }
-        })
-
-        return wp
-    }
-
-    function analyze(wp){
-
-        let vals = [wp.left, wp.center, wp.right].filter(v => v != null)
+    function analyze(vals){
         if(vals.length < 2) return null
 
-        let min = Math.min(...vals)
-        let max = Math.max(...vals)
-        let skew = max - min
+        let skew = Math.max(...vals) - Math.min(...vals)
 
         let dir = null
-
-        if(wp.left != null && wp.right != null){
-            dir = wp.right > wp.left ? "increasing" : "decreasing"
+        if(vals.length === 3){
+            dir = vals[2] > vals[0] ? "towards_right" : "towards_left"
         }
 
         return { skew, dir }
     }
 
-    let wp1 = getWP(e1, e3)
-    let wp2 = getWP(e2, e4)
-
-    let res1 = analyze(wp1)
-    let res2 = analyze(wp2)
+    let res1 = analyze(wp1) // E2 & E4
+    let res2 = analyze(wp2) // E1 & E3
 
     let issues = []
-
     let maxSkew = 0
 
-    /* ---------------- WALL PAIR 1 ---------------- */
+    /* ---------- WP1 ---------- */
     if(res1){
         maxSkew = Math.max(maxSkew, res1.skew)
 
@@ -1944,20 +1907,17 @@ function getOrthogonalityInsights(room){
 
             let action = getTreatment(res1.skew)
 
-            if(action){
-
-                if(res1.dir === "increasing"){
-                    issues.push(`Wall ${e4}: outward ${Math.round(res1.skew)} mm → ${action}`)
-                    issues.push(`Wall ${e2}: inward ${Math.round(res1.skew)} mm → panel/alignment correction`)
-                }else{
-                    issues.push(`Wall ${e2}: outward ${Math.round(res1.skew)} mm → ${action}`)
-                    issues.push(`Wall ${e4}: inward ${Math.round(res1.skew)} mm → panel/alignment correction`)
-                }
+            if(res1.dir === "towards_right"){
+                issues.push(`Wall ${e4} is out by ${Math.round(res1.skew)} mm → ${action}`)
+                issues.push(`Wall ${e2} may need alignment correction`)
+            }else{
+                issues.push(`Wall ${e2} is out by ${Math.round(res1.skew)} mm → ${action}`)
+                issues.push(`Wall ${e4} may need alignment correction`)
             }
         }
     }
 
-    /* ---------------- WALL PAIR 2 ---------------- */
+    /* ---------- WP2 ---------- */
     if(res2){
         maxSkew = Math.max(maxSkew, res2.skew)
 
@@ -1965,24 +1925,19 @@ function getOrthogonalityInsights(room){
 
             let action = getTreatment(res2.skew)
 
-            if(action){
-
-                if(res2.dir === "increasing"){
-                    issues.push(`Wall ${e3}: outward ${Math.round(res2.skew)} mm → ${action}`)
-                    issues.push(`Wall ${e1}: inward ${Math.round(res2.skew)} mm → panel/alignment correction`)
-                }else{
-                    issues.push(`Wall ${e1}: outward ${Math.round(res2.skew)} mm → ${action}`)
-                    issues.push(`Wall ${e3}: inward ${Math.round(res2.skew)} mm → panel/alignment correction`)
-                }
+            if(res2.dir === "towards_right"){
+                issues.push(`Wall ${e3} is out by ${Math.round(res2.skew)} mm → ${action}`)
+                issues.push(`Wall ${e1} may need alignment correction`)
+            }else{
+                issues.push(`Wall ${e1} is out by ${Math.round(res2.skew)} mm → ${action}`)
+                issues.push(`Wall ${e3} may need alignment correction`)
             }
         }
     }
 
-    /* ---------------- FINAL OUTPUT ---------------- */
-
-    // ✅ If no issues → explicitly confirm orthogonality
+    /* ---------- FINAL ---------- */
     if(!issues.length){
-        return [`Room is orthogonal (max deviation ${Math.round(maxSkew)} mm)`]
+        return [`Room is proper (within tolerance)`]
     }
 
     return issues
