@@ -204,7 +204,10 @@ function normElev(str){
         .trim()
 }
  
- 
+ function avg(vals){
+    if(!vals || !vals.length) return 0
+    return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
+}
 function saveCurrentReport(){
 
 if(!currentReportId) return;
