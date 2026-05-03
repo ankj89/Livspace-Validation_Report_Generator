@@ -411,42 +411,34 @@ function getSiteDimensions(room){
         .filter(x => x > 0)
 
     // ---------------- SUPPORTING (CENTER ONLY) ----------------
-    let c1 = []
-    let c2 = []
+    // ---------------- SUPPORTING (CENTER ONLY) ----------------
+let c1 = []
+let c2 = []
 
-    if(elevs.length >= 4){
+wallMeasData.forEach(r=>{
 
-        let [e1,e2,e3,e4] = elevs
+    if(normRoom(r.Room) !== normRoom(room)) return
 
-        wallMeasData.forEach(r=>{
+    let param = norm(r.Parameter)
 
-            if(normRoom(r.Room) !== normRoom(room)) return
-let param = norm(r.Parameter)   // 🔥 use your existing norm()
+    // ❌ block soffit
+    if(param.includes("soffit")) return
 
-// ❌ explicitly block soffit
-if(param.includes("soffit")) return
+    // ✅ only center
+    if(param !== "center") return
 
-// ✅ allow only pure center
-if(param !== "center") return
+    let val = Number(r.Value)
+    if(!val) return
 
-            let val = Number(r.Value)
-            if(!val) return
+    let elev = normElev(r.Elevation)
 
-            if(
-                normElev(r.Elevation) === normElev(e1) ||
-                normElev(r.Elevation) === normElev(e3)
-            ){
-                c1.push(val)
-            }
-
-            if(
-                normElev(r.Elevation) === normElev(e2) ||
-                normElev(r.Elevation) === normElev(e4)
-            ){
-                c2.push(val)
-            }
-        })
+    // Map dynamically instead of assuming 4 elevations
+    if(elevs.includes(r.Elevation)){
+        c1.push(val)
     }
+})
+
+   
 
     // ---------------- ROBUST AVERAGE ----------------
     function robustAvg(arr){
@@ -465,8 +457,8 @@ if(param !== "center") return
     }
 
     // ---------------- FINAL DIMENSIONS ----------------
-    let L = robustAvg([...wp1, ...c1])
-    let B = robustAvg([...wp2, ...c2])
+  let L = wp1.length ? robustAvg(wp1) : robustAvg(c1)
+let B = wp2.length ? robustAvg(wp2) : robustAvg(c1)
 
     return { L, B }
 }
