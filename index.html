@@ -268,6 +268,7 @@ function getMeasurementComparison(avg, autocad){
         remark: "OK"
     }
 }
+ 
 function loadReport(reportId){
 
 let allReports = getAllReports();
@@ -1337,26 +1338,9 @@ issues.push(`${e}: ${dev} mm → ${action}`)
 
 if(elevs.length >= 4){
 
-let pair1 = [elevs[0], elevs[2]]
-let pair2 = [elevs[1], elevs[3]]
+let orthoIssues = getOrthogonalityInsights(m.Room)
 
-let getAvg = (pair)=>{
-let vals = pair.map(e => getWallValue(m.Room, e, "Center")).filter(x=>x)
-if(!vals.length) return 0
-return vals.reduce((a,b)=>a+b,0)/vals.length
-}
-
-let avg1 = getAvg(pair1)
-let avg2 = getAvg(pair2)
-
-let skew = Math.abs(avg1 - avg2)
-
-if(skew > 5){
-let action = getTreatment(skew)
-if(action){
-issues.push(`Room skew: ${skew} mm → ${action}`)
-}
-}
+orthoIssues.forEach(i => issues.push(i))
 
 }
 
@@ -1882,30 +1866,112 @@ XLSX.utils.book_append_sheet(wb, ws, "Insights");
 XLSX.writeFile(wb, "Insights.xlsx");
 }
 
-function getRoomOrthoSummary(m){
 
-let wp1 = [m.wp1_c1, m.wp1_mid, m.wp1_c2].map(Number).filter(x=>x)
-let wp2 = [m.wp2_c1, m.wp2_mid, m.wp2_c2].map(Number).filter(x=>x)
+function getOrthogonalityInsights(room){
 
-if(wp1.length !== 3 || wp2.length !== 3) return ""
+    let elevs = getElevations(room)
+    if(elevs.length < 4) return []
 
-let dev1 = Math.max(...wp1) - Math.min(...wp1)
-let dev2 = Math.max(...wp2) - Math.min(...wp2)
+    let e1 = elevs[0]
+    let e2 = elevs[1]
+    let e3 = elevs[2]
+    let e4 = elevs[3]
 
-let avg1 = (wp1[0] + wp1[1] + wp1[2]) / 3
-let avg2 = (wp2[0] + wp2[1] + wp2[2]) / 3
+    function getWP(eA, eB){
 
-let skew = Math.abs(avg1 - avg2)
+        let wp = { left:null, center:null, right:null }
 
-let maxDev = Math.max(dev1, dev2, skew)
+        wallMeasData.forEach(r=>{
 
-if(maxDev > 30) return "Room not orthogonal (>30 mm)"
-if(maxDev > 20) return "Room not orthogonal (20–30 mm)"
-if(maxDev > 5) return "Room slightly skewed (5–20 mm)"
+            if(normRoom(r.Room) !== normRoom(room)) return
 
-return ""
+            if(
+                normElev(r.Elevation) !== normElev(eA) &&
+                normElev(r.Elevation) !== normElev(eB)
+            ) return
+
+            let param = (r.Parameter || "").toLowerCase()
+            let val = Number(r.Value)
+            if(isNaN(val)) return
+
+            if(param.includes("corner1") || param.includes("left")){
+                wp.left = val
+            }
+            else if(param.includes("corner2") || param.includes("right")){
+                wp.right = val
+            }
+            else if(param.includes("center")){
+                wp.center = val
+            }
+        })
+
+        return wp
+    }
+
+    function analyze(wp){
+
+        let vals = [wp.left, wp.center, wp.right].filter(v => v != null)
+        if(vals.length < 2) return null
+
+        let min = Math.min(...vals)
+        let max = Math.max(...vals)
+        let skew = max - min
+
+        let dir = null
+
+        if(wp.left != null && wp.right != null){
+            dir = wp.right > wp.left ? "increasing" : "decreasing"
+        }
+
+        return { skew, dir }
+    }
+
+    let wp1 = getWP(e1, e3)   // affects e2 & e4
+    let wp2 = getWP(e2, e4)   // affects e1 & e3
+
+    let res1 = analyze(wp1)
+    let res2 = analyze(wp2)
+
+    let issues = []
+
+    /* ---------------- WALL PAIR 1 ---------------- */
+    if(res1 && res1.skew > 5){
+
+        let action = getTreatment(res1.skew)
+
+        if(action){
+
+            if(res1.dir === "increasing"){
+                issues.push(`Wall ${e4}: outward ${Math.round(res1.skew)} mm → ${action}`)
+                issues.push(`Wall ${e2}: inward ${Math.round(res1.skew)} mm → panel/alignment correction`)
+            }else{
+                issues.push(`Wall ${e2}: outward ${Math.round(res1.skew)} mm → ${action}`)
+                issues.push(`Wall ${e4}: inward ${Math.round(res1.skew)} mm → panel/alignment correction`)
+            }
+        }
+    }
+
+    /* ---------------- WALL PAIR 2 ---------------- */
+    if(res2 && res2.skew > 5){
+
+        let action = getTreatment(res2.skew)
+
+        if(action){
+
+            if(res2.dir === "increasing"){
+                issues.push(`Wall ${e3}: outward ${Math.round(res2.skew)} mm → ${action}`)
+                issues.push(`Wall ${e1}: inward ${Math.round(res2.skew)} mm → panel/alignment correction`)
+            }else{
+                issues.push(`Wall ${e1}: outward ${Math.round(res2.skew)} mm → ${action}`)
+                issues.push(`Wall ${e3}: inward ${Math.round(res2.skew)} mm → panel/alignment correction`)
+            }
+        }
+    }
+
+    return issues
 }
 
+ 
 /* ---------------- FIX ELEVATION ---------------- */
 function getElevations(room){
 
@@ -2378,11 +2444,24 @@ wallMeasData.forEach(r=>{
 if(normRoom(r.Room) !== normRoom(room)) return
 
 if(normElev(r.Elevation) === normElev(e1)|| normElev(r.Elevation) === normElev(e3)){
-pair1.push(Number(r.Value))
+let param = (r.Parameter || "").toLowerCase()
+if(
+    param === "center" ||
+    param === "upper"
+){
+    pair1.push(Number(r.Value))
+}
 }
 
 if(normElev(r.Elevation) === normElev(e2) || normElev(r.Elevation) === normElev(e4)){
-pair2.push(Number(r.Value))
+let param = (r.Parameter || "").toLowerCase()
+
+if(
+    param === "center" ||
+    param === "upper"
+){
+    pair2.push(Number(r.Value))
+}
 }
 })
 
