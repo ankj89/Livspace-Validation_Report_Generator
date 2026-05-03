@@ -250,7 +250,7 @@ function getMeasurementComparison(avg, autocad){
     avg = Number(avg)
     autocad = Number(autocad)
 
-    if(!avg || !autocad){
+    if(avg == null || autocad == null || avg === "" || autocad === ""){
         return { diff: 0, remark: "" }
     }
 
@@ -390,6 +390,80 @@ return [...new Set(expanded)].join(", ")
 
 
 }
+
+function getSiteDimensions(room){
+
+    let m = measData.find(x => normRoom(x.Room) === normRoom(room))
+    if(!m) return { L:0, B:0 }
+
+    let elevs = getElevations(room)
+
+    // ---------------- PRIMARY (WALL PAIR) ----------------
+    let wp1 = [m.wp1_c1, m.wp1_mid, m.wp1_c2]
+        .map(Number)
+        .filter(x => x > 0)
+
+    let wp2 = [m.wp2_c1, m.wp2_mid, m.wp2_c2]
+        .map(Number)
+        .filter(x => x > 0)
+
+    // ---------------- SUPPORTING (CENTER ONLY) ----------------
+    let c1 = []
+    let c2 = []
+
+    if(elevs.length >= 4){
+
+        let [e1,e2,e3,e4] = elevs
+
+        wallMeasData.forEach(r=>{
+
+            if(normRoom(r.Room) !== normRoom(room)) return
+
+            let param = (r.Parameter || "").toLowerCase()
+            if(param !== "center") return   // ❌ ignore upper/soffit
+
+            let val = Number(r.Value)
+            if(!val) return
+
+            if(
+                normElev(r.Elevation) === normElev(e1) ||
+                normElev(r.Elevation) === normElev(e3)
+            ){
+                c1.push(val)
+            }
+
+            if(
+                normElev(r.Elevation) === normElev(e2) ||
+                normElev(r.Elevation) === normElev(e4)
+            ){
+                c2.push(val)
+            }
+        })
+    }
+
+    // ---------------- ROBUST AVERAGE ----------------
+    function robustAvg(arr){
+
+        let vals = arr.filter(x => x > 0)
+        if(!vals.length) return 0
+
+        vals.sort((a,b)=>a-b)
+
+        // remove extreme values (outliers)
+        if(vals.length >= 5){
+            vals = vals.slice(1, -1)
+        }
+
+        return Math.round(vals.reduce((a,b)=>a+b,0) / vals.length)
+    }
+
+    // ---------------- FINAL DIMENSIONS ----------------
+    let L = robustAvg([...wp1, ...c1])
+    let B = robustAvg([...wp2, ...c2])
+
+    return { L, B }
+}
+ 
  
 function populateReportList(){
 
@@ -2382,8 +2456,10 @@ pair2.push(Number(r.Value))
 }
 })
 
-let avg1 = avg(pair1.filter(x=>x>0))
-let avg2 = avg(pair2.filter(x=>x>0))
+let dims = getSiteDimensions(room)
+
+let avg1 = dims.L
+let avg2 = dims.B
 
 if(avg1) details.push(`<b>Distance between ${e1} ↔ ${e3}:</b> ${avg1} mm`)
 if(avg2) details.push(`<b>Distance between ${e2} ↔ ${e4}:</b> ${avg2} mm`)
@@ -2399,49 +2475,11 @@ let autoL = document.getElementById(`autoL_${room}`)?.value || "-"
 let autoB = document.getElementById(`autoB_${room}`)?.value || "-"
 
 
-let siteL = 0
-let siteB = 0
+let dims = getSiteDimensions(room)
 
-if(elevs.length >= 4){
+let siteL = dims.L
+let siteB = dims.B
 
-let e1 = elevs[0]
-let e2 = elevs[1]
-let e3 = elevs[2]
-let e4 = elevs[3]
-
-let pair1 = []
-let pair2 = []
-
-wallMeasData.forEach(r=>{
-if(normRoom(r.Room) !== normRoom(room)) return
-
-if(normElev(r.Elevation) === normElev(e1)|| normElev(r.Elevation) === normElev(e3)){
-let param = (r.Parameter || "").toLowerCase()
-if(
-    param === "center" ||
-    param === "upper"
-){
-    pair1.push(Number(r.Value))
-}
-}
-
-if(normElev(r.Elevation) === normElev(e2) || normElev(r.Elevation) === normElev(e4)){
-let param = (r.Parameter || "").toLowerCase()
-
-if(
-    param === "center" ||
-    param === "upper"
-){
-    pair2.push(Number(r.Value))
-}
-}
-})
-
-let avg = (arr)=> arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0
-
-siteL = avg(pair1.filter(x=>x>0))
-siteB = avg(pair2.filter(x=>x>0))
-}
 
 let compL = getMeasurementComparison(siteL, autoL)
 let compB = getMeasurementComparison(siteB, autoB)
