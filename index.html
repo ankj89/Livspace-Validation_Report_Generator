@@ -2445,20 +2445,6 @@ let e2 = elevs[1]
 let e3 = elevs[2]
 let e4 = elevs[3]
 
-let pair1 = []
-let pair2 = []
-
-wallMeasData.forEach(r=>{
-if(normRoom(r.Room) !== normRoom(room)) return
-
-if(normElev(r.Elevation) === normElev(e1) || normElev(r.Elevation) === normElev(e3)){
-pair1.push(Number(r.Value))
-}
-
-if(normElev(r.Elevation) === normElev(e2) || normElev(r.Elevation) === normElev(e4)){
-pair2.push(Number(r.Value))
-}
-})
 
 let dims = getSiteDimensions(room)
 
@@ -2970,10 +2956,6 @@ rooms.forEach(room => {
 let elevs = getElevations(room)
 
 /* AVG FUNCTION */
-function avg(vals){
-    if(!vals.length) return 0
-    return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
-}
 
 let siteLength = ""
 let siteBreadth = ""
@@ -2985,20 +2967,29 @@ if(elevs.length >= 4){
     let e3 = elevs[2]
     let e4 = elevs[3]
 
-    let pair1 = []
-    let pair2 = []
+ let pair1 = []
+let pair2 = []
 
-    wallMeasData.forEach(r=>{
-        if(normRoom(r.Room) !== normRoom(room)) return
+wallMeasData.forEach(r=>{
 
-        if(normElev(r.Elevation) === normElev(e1) || normElev(r.Elevation) === normElev(e3)){
-            pair1.push(Number(r.Value))
-        }
+    if(normRoom(r.Room) !== normRoom(room)) return
 
-        if(normElev(r.Elevation) === normElev(e2) || normElev(r.Elevation) === normElev(e4)){
-            pair2.push(Number(r.Value))
-        }
-    })
+    let param = norm(r.Parameter)
+
+    // ❌ STRICT FILTER
+    if(param !== "center") return
+
+    let val = Number(r.Value)
+    if(!val) return
+
+    if(normElev(r.Elevation) === normElev(e1) || normElev(r.Elevation) === normElev(e3)){
+        pair1.push(val)
+    }
+
+    if(normElev(r.Elevation) === normElev(e2) || normElev(r.Elevation) === normElev(e4)){
+        pair2.push(val)
+    }
+})
 
     siteLength = avg(pair1.filter(x=>x>0))
     siteBreadth = avg(pair2.filter(x=>x>0))
