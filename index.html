@@ -253,7 +253,7 @@ function getMeasurementComparison(avg, autocad){
     avg = Number(avg)
     autocad = Number(autocad)
 
-    if(avg == null || autocad == null || avg === "" || autocad === ""){
+    if(isNaN(avg) || isNaN(autocad)){
         return { diff: 0, remark: "" }
     }
 
@@ -2427,38 +2427,10 @@ if(m.utilityFloor) details.push(`<b>Other Utility bottom to FFL:</b> ${m.utility
 
 let elevs = getElevations(room)
 
-/* helper */
-function avg(vals){
-if(!vals.length) return 0
-return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
-}
-
-if(elevs.length >= 2){
- 
-let e1 = elevs[0]
-let e2 = elevs[1]
-let e3 = elevs[2] || elevs[0]
-let e4 = elevs[3] || elevs[1]
-
-
-let dims = getSiteDimensions(room)
-
-let avg1 = dims.L
-let avg2 = dims.B
-
-if(avg1) details.push(`<b>Distance between ${e1} ↔ ${e3}:</b> ${avg1} mm`)
-if(avg2) details.push(`<b>Distance between ${e2} ↔ ${e4}:</b> ${avg2} mm`)
-}
-
-/* ---------------- DOOR ---------------- */
-if(m.doorheight && m.doorwidth){
-details.push(`<b>Door/Max Opening in room:</b> ${m.doorheight} x ${m.doorwidth} mm`)
-}
-
-/* ---------------- FINAL ---------------- */
-let autoL = document.getElementById(`autoL_${room}`)?.value || "-"
-let autoB = document.getElementById(`autoB_${room}`)?.value || "-"
-
+let e1 = elevs[0] || "E1"
+let e2 = elevs[1] || "E2"
+let e3 = elevs[2] || e1
+let e4 = elevs[3] || e2
 
 let dims = getSiteDimensions(room)
 
@@ -2468,33 +2440,29 @@ let manualB = document.getElementById(`manualB_${room}`)?.value
 let siteL = manualL ? Number(manualL) : dims.L
 let siteB = manualB ? Number(manualB) : dims.B
 
+let autoL = document.getElementById(`autoL_${room}`)?.value || "-"
+let autoB = document.getElementById(`autoB_${room}`)?.value || "-"
 
 let compL = getMeasurementComparison(siteL, autoL)
 let compB = getMeasurementComparison(siteB, autoB)
 
-let remark = ""
-
 let msgs = []
 
 if(compL.diff > 50){
-
     let direction = siteL > autoL ? "greater" : "lesser"
-
     msgs.push(`${e1}-${e3}: Site measurement is ${direction} than AutoCAD by ${compL.diff} mm`)
 }
 
 if(compB.diff > 50){
-
     let direction = siteB > autoB ? "greater" : "lesser"
-
-    msgs.push(`$${e2}-${e4}: Site measurement is ${direction} than AutoCAD by ${compB.diff} mm`)
+    msgs.push(`${e2}-${e4}: Site measurement is ${direction} than AutoCAD by ${compB.diff} mm`)
 }
 
-if(!msgs.length){
-    remark = "OK"
-}else{
-    remark = msgs.join("<br>")
-}
+let remark = msgs.length ? msgs.join("<br>") : "OK"
+
+
+
+
 
 content += `<tr>
 <td>${room}</td>
@@ -2954,7 +2922,11 @@ rooms.forEach(room => {
 let elevs = getElevations(room)
 
 /* AVG FUNCTION */
-
+/* helper */
+function avg(vals){
+if(!vals.length) return 0
+return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
+}
 let siteLength = ""
 let siteBreadth = ""
 
