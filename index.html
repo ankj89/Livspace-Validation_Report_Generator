@@ -2433,12 +2433,12 @@ if(!vals.length) return 0
 return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length)
 }
 
-if(elevs.length >= 4){
-
+if(elevs.length >= 2){
+ 
 let e1 = elevs[0]
 let e2 = elevs[1]
-let e3 = elevs[2]
-let e4 = elevs[3]
+let e3 = elevs[2] || elevs[0]
+let e4 = elevs[3] || elevs[1]
 
 
 let dims = getSiteDimensions(room)
@@ -2462,8 +2462,11 @@ let autoB = document.getElementById(`autoB_${room}`)?.value || "-"
 
 let dims = getSiteDimensions(room)
 
-let siteL = dims.L
-let siteB = dims.B
+let manualL = document.getElementById(`manualL_${room}`)?.value
+let manualB = document.getElementById(`manualB_${room}`)?.value
+
+let siteL = manualL ? Number(manualL) : dims.L
+let siteB = manualB ? Number(manualB) : dims.B
 
 
 let compL = getMeasurementComparison(siteL, autoL)
@@ -2477,14 +2480,14 @@ if(compL.diff > 50){
 
     let direction = siteL > autoL ? "greater" : "lesser"
 
-    msgs.push(`${elevs[0]}-${elevs[2]}: Site measurement is ${direction} than AutoCAD by ${compL.diff} mm`)
+    msgs.push(`${e1}-${e3}: Site measurement is ${direction} than AutoCAD by ${compL.diff} mm`)
 }
 
 if(compB.diff > 50){
 
     let direction = siteB > autoB ? "greater" : "lesser"
 
-    msgs.push(`${elevs[1]}-${elevs[3]}: Site measurement is ${direction} than AutoCAD by ${compB.diff} mm`)
+    msgs.push(`$${e2}-${e4}: Site measurement is ${direction} than AutoCAD by ${compB.diff} mm`)
 }
 
 if(!msgs.length){
@@ -3007,7 +3010,16 @@ ${(siteBreadth && elevs.length >= 4)
 ? `${elevs[1]} ↔ ${elevs[3]} = ${siteBreadth} mm` 
 : "-"}
 
+<br><br>
+
+<b>Manual Override:</b><br>
+
+L: <input type="number" id="manualL_${room}" style="width:70px"><br>
+B: <input type="number" id="manualB_${room}" style="width:70px">
+
 </td>
+
+
 
 <td>
 L: <input type="number" id="autoL_${room}" style="width:70px"><br>
