@@ -2437,8 +2437,26 @@ let dims = getSiteDimensions(room)
 let manualL = document.getElementById(`manualL_${room}`)?.value
 let manualB = document.getElementById(`manualB_${room}`)?.value
 
-let siteL = manualL ? Number(manualL) : dims.L
-let siteB = manualB ? Number(manualB) : dims.B
+let siteL = dims.L
+let siteB = dims.B
+
+if(manualL !== "" && manualL !== undefined){
+    siteL = Number(manualL)
+}
+
+if(manualB !== "" && manualB !== undefined){
+    siteB = Number(manualB)
+}
+// 🔥 ADD SITE DIMENSIONS TO DISPLAY (THIS WAS MISSING)
+
+if(siteL){
+    details.push(`<b>Room Length:</b> ${e1} ↔ ${e3} = ${siteL} mm`)
+}
+
+if(siteB){
+    details.push(`<b>Room Breadth:</b> ${e2} ↔ ${e4} = ${siteB} mm`)
+}
+ 
 
 let autoL = document.getElementById(`autoL_${room}`)?.value || "-"
 let autoB = document.getElementById(`autoB_${room}`)?.value || "-"
