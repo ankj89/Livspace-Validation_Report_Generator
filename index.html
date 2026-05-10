@@ -987,8 +987,26 @@ type:"room",
     type:["Design Input","Cost Input"],
     category:["Civil"]
 },
+   
 condition:{itemIncludes:"tile on tile",valueEquals:"yes"},
 output:()=> "Tile-on-tile installation feasible. Modifications to existing doors/wwodwork to be considered in costing."
+},
+{
+id:"BALCONY_CONSTRAINT",
+type:"room",
+meta:{
+type:["Execution Input","Cost Input"],
+category:["Civil","Electrical","False Ceiling"]
+},
+condition:{questionIncludes:"safety"},
+output:(s)=>{
+let val=Number(s.Value);
+if(!val) return null;
+if(val>2){
+return "There is space constraint leading to safety issue and additional manhours. Additional charges over MRC maybe applicable for Civil, False Ceiling, electrical, painting works";
+}
+return null;
+}
 },
  {
 id:"REPAINT_FEASIBLE",
