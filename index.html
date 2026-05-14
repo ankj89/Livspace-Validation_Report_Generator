@@ -396,69 +396,92 @@ return [...new Set(expanded)].join(", ")
 
 function getSiteDimensions(room){
 
-    let m = measData.find(x => normRoom(x.Room) === normRoom(room))
+    let m = measData.find(x =>
+        normRoom(x.Room) === normRoom(room)
+    )
+
     if(!m) return { L:0, B:0 }
 
     let elevs = getElevations(room)
 
-    // ---------------- PRIMARY (WALL PAIR) ----------------
-    let wp1 = [m.wp1_c1, m.wp1_mid, m.wp1_c2]
-        .map(Number)
-        .filter(x => x > 0)
+    let e1 = normElev(elevs[0] || "")
+    let e2 = normElev(elevs[1] || "")
+    let e3 = normElev(elevs[2] || "")
+    let e4 = normElev(elevs[3] || "")
 
-    let wp2 = [m.wp2_c1, m.wp2_mid, m.wp2_c2]
-        .map(Number)
-        .filter(x => x > 0)
+    /* ---------------- PRIMARY ROOM PAIRS ---------------- */
 
-    // ---------------- SUPPORTING (CENTER ONLY) ----------------
-    // ---------------- SUPPORTING (CENTER ONLY) ----------------
-let c1 = []
-let c2 = []
+    let wp1 = [
+        Number(m.wp1_c1),
+        Number(m.wp1_mid),
+        Number(m.wp1_c2)
+    ].filter(x => x > 0)
 
-wallMeasData.forEach(r=>{
+    let wp2 = [
+        Number(m.wp2_c1),
+        Number(m.wp2_mid),
+        Number(m.wp2_c2)
+    ].filter(x => x > 0)
 
-    if(normRoom(r.Room) !== normRoom(room)) return
+    /* ---------------- WALL FALLBACK ---------------- */
 
-    let param = norm(r.Parameter)
+    let pair13 = []
+    let pair24 = []
 
-    // ❌ block soffit
-    if(param.includes("soffit")) return
+    wallMeasData.forEach(r=>{
 
-    // ✅ only center
-    if(param !== "center") return
+        if(normRoom(r.Room) !== normRoom(room)) return
 
-    let val = Number(r.Value)
-    if(!val) return
+        let param = norm(r.Parameter)
 
-    let elev = normElev(r.Elevation)
+        /* only center measurements */
+        if(param !== "center") return
 
-    // Map dynamically instead of assuming 4 elevations
-    if(elevs.includes(r.Elevation)){
-        c1.push(val)
-    }
-})
+        let val = Number(r.Value)
+        if(!val) return
 
-   
+        let elev = normElev(r.Elevation)
 
-    // ---------------- ROBUST AVERAGE ----------------
+        /* pair 1-3 */
+        if(elev === e1 || elev === e3){
+            pair13.push(val)
+        }
+
+        /* pair 2-4 */
+        if(elev === e2 || elev === e4){
+            pair24.push(val)
+        }
+
+    })
+
+    /* ---------------- ROBUST AVG ---------------- */
+
     function robustAvg(arr){
 
         let vals = arr.filter(x => x > 0)
+
         if(!vals.length) return 0
 
         vals.sort((a,b)=>a-b)
 
-        // remove extreme values (outliers)
         if(vals.length >= 5){
-            vals = vals.slice(1, -1)
+            vals = vals.slice(1,-1)
         }
 
-        return Math.round(vals.reduce((a,b)=>a+b,0) / vals.length)
+        return Math.round(
+            vals.reduce((a,b)=>a+b,0) / vals.length
+        )
     }
 
-    // ---------------- FINAL DIMENSIONS ----------------
-  let L = wp1.length ? robustAvg(wp1) : robustAvg(c1)
-let B = wp2.length ? robustAvg(wp2) : robustAvg(c1)
+    /* ---------------- FINAL ---------------- */
+
+    let L = wp1.length
+        ? robustAvg(wp1)
+        : robustAvg(pair13)
+
+    let B = wp2.length
+        ? robustAvg(wp2)
+        : robustAvg(pair24)
 
     return { L, B }
 }
