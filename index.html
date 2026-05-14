@@ -2063,43 +2063,41 @@ function getElevations(room){
 
 if(!wallMeasData || !wallMeasData.length) return []
 
-let elevs = [...new Set(
-wallMeasData
-.filter(r => normRoom(r.Room) === normRoom(room))
-.map(r => {
-    
-    let e = (r.Elevation || "")
-        .toString()
-        .replace(/\u00A0/g,"")
-        .trim()
+let elevs = wallMeasData
+.filter(r =>
+    normRoom(r.Room) === normRoom(room)
+)
+.map(r =>
+    (r.Elevation || "")
+    .toString()
+    .replace(/\u00A0/g,"")
+    .trim()
+)
+.filter(Boolean)
 
-    /* 🔥 FORCE E PREFIX */
-    if(e && !e.toUpperCase().startsWith("E")){
-        e = "E" + e
-    }
-
-    return e
-})
-.filter(e => e && e !== "undefined")
-)]
-
-/* 🔥 SORT */
-elevs.sort((a,b)=>{
-    return parseInt(a.replace("E","")) - parseInt(b.replace("E",""))
-})
+/* UNIQUE */
+elevs = [...new Set(elevs)]
 
 return elevs
-
 }
 
  
 function getWallValue(room, elevation, type){
 
-let rec = wallMeasData.find(r =>
-norm(r.Room) === norm(room) &&
-norm(r.Elevation) === norm(elevation) &&
-norm(r.Parameter) === norm(type)
-)
+let rec = wallMeasData.find(r => {
+
+    let roomMatch =
+        normRoom(r.Room) === normRoom(room)
+
+    /* 🔥 FLEXIBLE ELEV MATCH */
+    let elevMatch =
+        normElev(r.Elevation) === normElev(elevation)
+
+    let typeMatch =
+        norm(r.Parameter) === norm(type)
+
+    return roomMatch && elevMatch && typeMatch
+})
 
 return Number(rec?.Value) || 0
 
