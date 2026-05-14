@@ -2063,14 +2063,36 @@ function getElevations(room){
 
 if(!wallMeasData || !wallMeasData.length) return []
 
-return [...new Set(
+let elevs = [...new Set(
 wallMeasData
-.filter(r => norm(r.Room) === norm(room))
-.map(r => r.Elevation)
+.filter(r => normRoom(r.Room) === normRoom(room))
+.map(r => {
+    
+    let e = (r.Elevation || "")
+        .toString()
+        .replace(/\u00A0/g,"")
+        .trim()
+
+    /* 🔥 FORCE E PREFIX */
+    if(e && !e.toUpperCase().startsWith("E")){
+        e = "E" + e
+    }
+
+    return e
+})
 .filter(e => e && e !== "undefined")
 )]
 
+/* 🔥 SORT */
+elevs.sort((a,b)=>{
+    return parseInt(a.replace("E","")) - parseInt(b.replace("E",""))
+})
+
+return elevs
+
 }
+
+ 
 function getWallValue(room, elevation, type){
 
 let rec = wallMeasData.find(r =>
