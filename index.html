@@ -768,6 +768,17 @@ condition:{questionIncludes:"permission",valueEquals:"yes"},
 output:()=> "Society/builder permission required before starting work"
 },
 
+  {
+id:"WaterproofFloor",
+type:"society",
+  meta:{
+    type:["Cost Input"],
+    category:["Misc"]
+},
+condition:{questionIncludes:"waterproofing",valueEquals:"yes"},
+output:()=> "Floor waterproffing works cost to be added along with tile instatllation as builder required certification of no lokage post completion of works."
+},
+
 {
 id:"POLICE",
 type:"society",
@@ -1379,6 +1390,19 @@ type:"room",
 condition:{itemIncludes:"additional tracks",valueEquals:"no"},
 output:()=> "Sufficient space not available to install additional window tracks. Design to be adjusted accordingly"
 },
+
+{
+id:"DOOR_TRACKS_NO",
+type:"room",
+ meta:{
+    type:["Design Input","Cost Input"],
+    category:["Carpentry"]
+},
+condition:{itemIncludes:"safety",valueEquals:"no"},
+output:()=> "Sufficient space not available to install safety door. Design/modification to existing door frame to be taken"
+},
+
+ 
 {
 id:"DARK_SHADE",
 type:"wall",
