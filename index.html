@@ -381,17 +381,20 @@ alert("Report deleted");
 }
 function getWallsFromRoom(matches){
 
-let walls = matches.map(x => x.Walls).filter(w => w && w.trim() !== "")
+let walls = matches
+.map(x => x.Walls)
+.filter(w => w != null)
+.flatMap(w => {
 
-/* 🔥 split if multiple like "E1,E2" */
-let expanded = walls.flatMap(w =>
-w.split(",").map(e => e.trim())
-)
+    return w
+        .toString()
+        .split(",")
+        .map(e => e.trim())
+        .filter(Boolean);
 
-/* 🔥 unique */
-return [...new Set(expanded)].join(", ")
+})
 
-
+return [...new Set(walls)].join(", ")
 }
 
 function getSiteDimensions(room){
@@ -1767,16 +1770,27 @@ if(normRoom(x.Room) !== normRoom(rm)) return false
 /* 🔥 REMOVE DUPLICATE WALL ENTRIES */
 let uniqueMap = new Map();
 
-matches.forEach(x=>{
-let key = (x.Walls || "")
-.split(",")
-.map(w=>w.trim())
-.sort()
-.join(","); // normalize
- 
-if(!uniqueMap.has(key)){
-uniqueMap.set(key, x);
-}
+matches.forEach(x => {
+
+    // 🔥 normalize Walls safely
+    let walls = x.Walls;
+
+    if(Array.isArray(walls)){
+        walls = walls.join(",");
+    }
+
+    walls = (walls ?? "")
+        .toString()
+        .split(",")
+        .map(w => w.trim())
+        .filter(Boolean)
+        .sort()
+        .join(",");
+
+    if(!uniqueMap.has(walls)){
+        uniqueMap.set(walls, x);
+    }
+
 });
 
 matches = Array.from(uniqueMap.values());
