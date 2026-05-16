@@ -455,15 +455,58 @@ function getSiteDimensions(room){
         )
     }
 
+    /* ---------------- SMART FALLBACK ---------------- */
+
+    let elevs = getElevations(room)
+
+    let e1 = elevs[0]
+    let e2 = elevs[1]
+    let e3 = elevs[2]
+    let e4 = elevs[3]
+
+    /* Length walls → E1 ↔ E3 */
+    let lengthCenters = centerMeasurements
+    .filter(x =>
+
+        normElev(x.elevation) === normElev(e1) ||
+        normElev(x.elevation) === normElev(e3)
+
+    )
+    .map(x => x.value)
+
+    /* Breadth walls → E2 ↔ E4 */
+    let breadthCenters = centerMeasurements
+    .filter(x =>
+
+        normElev(x.elevation) === normElev(e2) ||
+        normElev(x.elevation) === normElev(e4)
+
+    )
+    .map(x => x.value)
+
     /* ---------------- PRIORITY ---------------- */
 
     let L = wp1.length
         ? robustAvg(wp1)
-        : robustAvg(centerMeasurements.map(x=>x.value))
+        : robustAvg(lengthCenters)
 
     let B = wp2.length
         ? robustAvg(wp2)
-        : robustAvg(centerMeasurements.map(x=>x.value))
+        : robustAvg(breadthCenters)
+
+    /* FINAL SAFETY FALLBACK */
+
+    if(!L){
+        L = robustAvg(
+            centerMeasurements.map(x=>x.value)
+        )
+    }
+
+    if(!B){
+        B = robustAvg(
+            centerMeasurements.map(x=>x.value)
+        )
+    }
 
     return { L, B }
 }
